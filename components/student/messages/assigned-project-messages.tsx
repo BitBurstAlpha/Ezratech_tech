@@ -1,0 +1,17 @@
+"use client";
+import { useEffect, useState } from "react";
+import { useSMEWorkspaces } from "@/components/sme/workspace/workspace-manager-state";
+import { useSME } from "@/components/sme/sme-state";
+import { organisationSupervisor } from "@/components/sme/profile/profile-data";
+import { DashboardShell } from "../dashboard/dashboard-shell";
+import { inputClass, primaryButton } from "../workspace/workspace-ui";
+import { MessageContent } from "./message-content";
+import { studentProjectAssignments } from "./message-data";
+export function AssignedProjectMessages({ studentId }: { studentId: keyof typeof studentProjectAssignments }) {
+  const { records, dispatch } = useSMEWorkspaces(); const { profile } = useSME(); const supervisor = organisationSupervisor(profile);
+  const assigned = studentProjectAssignments[studentId]; const project = records[assigned.projectId];
+  const [text, setText] = useState(""); const [notice, setNotice] = useState("");
+  const closed = !project || ["completed", "cancelled"].includes(project.status);
+  useEffect(() => { if (project) dispatch({ type: "read", projectId: assigned.projectId, reader: "student" }); }, [assigned.projectId, project?.unread?.student, dispatch, project]);
+  return <DashboardShell activePath="/student/messages" title="Messages" studentName={assigned.name} studentId={studentId} subtitle="Communicate with your SME supervisor during your project."><p className="text-xs text-muted">Student demo preview: {assigned.name}</p>{project ? <section className="rounded-xl border border-border bg-white"><header className="border-b border-border p-5"><h2 className="text-lg font-semibold">{supervisor.name}</h2><p className="mt-2 text-sm text-muted">SME Supervisor · {profile.companyName}</p><p className="mt-2 text-sm font-medium text-primary">{project.title} · {assigned.name}</p><p className="mt-2 text-xs text-muted">{project.status === "prestart" ? "Pre-start Project" : project.status === "paused" ? "Project Paused · Communication remains available" : closed ? "Read Only" : "Active Project"}</p></header><div role="log" aria-label="Assigned project conversation" aria-live="polite" className="max-h-[480px] space-y-4 overflow-y-auto p-5">{project.messages.map(message => <article key={message.id} className={`max-w-[90%] rounded-xl p-4 ${message.senderRole === "student" ? "ml-auto bg-blue-light" : "bg-section"}`}><h3 className="mb-2 text-xs font-semibold">{message.author}</h3><MessageContent message={message} /></article>)}</div><form className="space-y-3 border-t border-border p-5" onSubmit={event => { event.preventDefault(); if (closed || !text.trim()) return; dispatch({ type: "message", projectId: assigned.projectId, senderRole: "student", author: assigned.name, text }); setText(""); setNotice("Demo message sent."); }}><label className="block"><span className="sr-only">Write a message</span><textarea disabled={closed} rows={3} value={text} onChange={event => setText(event.target.value)} placeholder="Write a message..." className={inputClass} /></label><button type="submit" disabled={closed || !text.trim()} className={primaryButton}>Send Message</button><p role="status" className="text-xs text-primary">{notice}</p></form></section> : <p className="rounded-xl border border-border bg-white p-5 text-sm text-muted">No Active Project Conversations</p>}<p className="text-xs text-muted">Prototype Demo · Messages and attachments shown here use simulated data.</p></DashboardShell>;
+}

@@ -1,0 +1,3 @@
+import Link from "next/link";
+
+export function Brand() { return <Link href="/" aria-label="EzraTech home" className="inline-flex items-center gap-2.5 text-[25px] font-bold tracking-[-1px]"><span className="relative grid h-9 w-9 place-items-center rounded-lg bg-primary text-white"><svg aria-hidden="true" width="23" height="23" viewBox="0 0 24 24" fill="none"><path d="M5 5h14L9 12h9L5 19h14" stroke="currentColor" strokeWidth="2.5" strokeLinejoin="round"/></svg><span className="absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full bg-accent"/></span><span>Ezra<span className="text-primary">Tech</span></span></Link>; }

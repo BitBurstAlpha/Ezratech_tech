@@ -1,0 +1,77 @@
+/* eslint-disable @typescript-eslint/no-require-imports -- CommonJS is required for this isolated TypeScript module loader. */
+// Test the shared prototype reducer and reporting selectors without a browser or service.
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const path = require('node:path');
+const Module = require('node:module');
+const ts = require('typescript');
+const root = path.resolve(__dirname, '..');
+const originalResolve = Module._resolveFilename;
+Module._resolveFilename = function (request, ...args) {
+  return originalResolve.call(this, request.startsWith('@/') ? path.join(root, request.slice(2)) : request, ...args);
+};
+require.extensions['.ts'] = function (module, filename) {
+  const source = fs.readFileSync(filename, 'utf8');
+  const result = ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020 } });
+  module._compile(result.outputText, filename);
+};
+const { initialDemoProgress, progressReducer } = require('../components/student/progress/progress-state.ts');
+const { pilotReport, studentOutcome, mockPilotOutcomes, mockDeliveryMetrics } = require('../components/admin/outcomes/outcomes-data.ts');
+const report = (state, period = 'Current Pilot', start = '2026-04-05', end = '2026-10-05') => pilotReport(state, false, period, start, end);
+const apply = (state, action) => progressReducer(state, action);
+const { submissionReady } = require('../components/student/workspace/completion/completion-data.ts');
+const completed = apply(structuredClone(initialDemoProgress), { type: 'loadCompletedPilotDemo' });
+assert.equal(submissionReady(completed.submission), true, 'completed snapshot contains the required submission evidence');
+const expected = { enrolled: 24, assessed: 22, ready: 18, matched: 16, studentStarted: 15, studentCompleted: 12, followedUp: 9, careerReported: 5, approved: 12, projectStarted: 10, projectCompleted: 8, cancelled: 1, active: 1, studentWithdrawals: 2, useful: 7, improvement: 1, feedbackPending: 2, smeCompleted: 8, repeatInterest: 5, repeatConfirmed: 3, repeatPending: 2, evidenceImproved: 8, evidenceUnchanged: 3, evidenceDevelopment: 1, evidencePending: 2, interviews: 4, offers: 2, employment: 1, study: 2, searching: 3, seriousOpen: 0, resolvedEscalations: 3, paused: 1, assessmentReviews: 2, studentHours: 420, supervisionHours: 78, reviewerHours: 32, supportHours: 55 };
+for (const [key, value] of Object.entries(expected)) assert.equal(report(completed).totals[key], value, `completed pilot ${key}`);
+assert.equal(studentOutcome(initialDemoProgress).completed, false, 'opening reporting must not complete a project');
+assert.equal(report(initialDemoProgress).totals.studentCompleted, 11);
+assert.equal(studentOutcome(completed).employmentAttributedToEzraTech, false);
+const record = { currentStatus: 'Started employment', roleTitle: 'Junior Data Analyst', employer: 'Example Employer', related: 'Yes', evidenceUsed: 'Yes', notes: 'Participant-reported only.' };
+const followUp = apply(completed, { type: 'save90DayFollowUp', followUp: record });
+assert.equal(report(followUp).totals.employment, 2);
+assert.equal(report(followUp).totals.followedUp, 9, 'multiple follow-ups must not double-count participants');
+assert.equal(report(followUp).totals.offers, 3);
+assert.equal(studentOutcome(followUp).latestOutcome, 'Employment reported after participation');
+assert.equal(apply(initialDemoProgress, { type: 'save90DayFollowUp', followUp: record }), initialDemoProgress, 'follow-up unavailable before completion');
+const noRepeat = apply(completed, { type: 'setRepeatDemand', interested: false, confirmed: false, interviewInterest: true });
+assert.equal(report(noRepeat).totals.repeatConfirmed, 2);
+assert.equal(report(noRepeat).totals.repeatInterest, 4);
+assert.equal(report(noRepeat).totals.repeatPending, 2, 'negative repeat feedback is recorded, not pending');
+assert.equal(noRepeat.outcomes.interviewInterest, true, 'interview interest is independent from repeat demand');
+const confirmedRepeat = apply(noRepeat, { type: 'setRepeatDemand', interested: false, confirmed: true, interviewInterest: false });
+assert.equal(confirmedRepeat.outcomes.repeatInterest, true, 'confirmed repeat demand must also imply interest');
+assert.equal(report(confirmedRepeat).totals.repeatConfirmed, 3);
+const pendingVerification = { ...completed, verifiedExperience: false, capabilityReview: { ...completed.capabilityReview, status: 'pending', verifiedExperienceReady: false } };
+assert.equal(report(pendingVerification).totals.evidenceImproved, 7);
+const verified = apply(pendingVerification, { type: 'approveCapabilityExperience' });
+assert.equal(report(verified).totals.evidenceImproved, 8, 'existing Admin verification updates reporting');
+const unaccepted = { ...completed, outcomes: { ...initialDemoProgress.outcomes }, verifiedExperience: false, projectCompletion: { ...completed.projectCompletion, smeApproved: false, capabilityReviewReady: false } };
+assert.equal(report(unaccepted).totals.projectCompleted, 7);
+const accepted = apply(unaccepted, { type: 'acceptFinalSMEProject' });
+assert.equal(report(accepted).totals.projectCompleted, 8, 'existing final SME approval updates completion');
+assert.equal(report(accepted).totals.useful, 7, 'existing final SME feedback updates employer outcomes');
+const cancellable = { ...unaccepted, activeProject: true };
+const cancelled = apply(cancellable, { type: 'cancelActiveProject', reason: 'Business circumstances changed', explanation: 'Demo closure', requestedBy: 'SME', partialDecision: 'Requires human review' });
+assert.equal(studentOutcome(cancelled).projectStatus, 'Cancelled');
+assert.equal(report(cancelled).totals.cancelled, 2);
+assert.equal(report(cancelled).totals.studentStarted, 15, 'cancelled participants stay in the started denominator');
+assert.equal(report(cancelled).totals.projectCompleted, 7);
+assert.equal(apply(cancelled, { type: 'loadCompletedPilotDemo' }), cancelled, 'snapshot cannot erase cancellation');
+assert.equal(apply(cancelled, { type: 'save90DayFollowUp', followUp: record }), cancelled);
+assert.equal(report(completed, 'Custom', '2027-01-01', '2027-02-01').alexIncluded, false);
+assert(Object.values(report(completed, 'Custom', '2027-01-01', '2027-02-01').totals).every(value => value === 0));
+assert.equal(report(completed, 'Custom', '2026-10-05', '2026-01-01').valid, false);
+assert(report(completed, 'Last 3 Months').totals.enrolled < 24, 'period filters must change the cohort counts');
+const earlier = report(completed, 'Custom', '2026-06-01', '2026-06-30');
+assert.equal(earlier.alexIncluded, false);
+assert.equal(earlier.totals.enrolled, 11);
+for (const period of ['Current Pilot', 'Last 3 Months', 'Last 6 Months']) {
+ const totals = report(completed, period).totals;
+ assert.equal(totals.projectStarted, totals.projectCompleted + totals.cancelled + totals.active, 'filtered delivery statuses reconcile with started projects');
+ assert(totals.paused <= totals.active, 'paused projects belong to still-active projects');
+ assert.equal(totals.useful + totals.improvement, totals.smeCompleted, 'completed employer feedback reconciles within cohorts');
+}
+assert.deepEqual(mockDeliveryMetrics, { studentHours: 36, supervisionHours: 12, reviewerHours: 4, supportHours: 5 }, 'selectors never mutate source data');
+assert.equal(mockPilotOutcomes.projectCompleted, 7);
+console.log('Outcomes checks passed: supplied pilot totals, existing completion/verification, follow-up, repeat demand, cancellation and reporting filters.');

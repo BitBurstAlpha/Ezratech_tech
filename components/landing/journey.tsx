@@ -1,0 +1,9 @@
+import { Icon, type IconName } from "./icon";
+const stages: {name: string; description: string; icon: IconName}[] = [
+ {name: "Student", description: "Your ambition starts here", icon: "student"},
+ {name: "Skills Assessment", description: "Discover your strengths", icon: "assessment"},
+ {name: "Personalised Learning", description: "Develop skills that matter", icon: "learning"},
+ {name: "SME Project", description: "Put your learning to work", icon: "project"},
+ {name: "Verified Experience", description: "Show what you can do", icon: "verified"},
+];
+export function Journey() { return <div className="mx-auto w-full max-w-[470px] rounded-2xl border border-[#dceaf3] bg-blue-light p-6 sm:p-8"><div className="mb-6 flex items-center justify-between"><span className="text-xs font-semibold uppercase tracking-[0.15em] text-primary">Your journey with EzraTech</span><span className="h-2 w-2 rounded-full bg-accent"/></div><ol className="space-y-3">{stages.map((stage, index) => <li key={stage.name} className="relative">{index < 4 && <span aria-hidden="true" className="absolute left-[29px] top-14 h-5 border-l-2 border-dashed border-[#bed7e8]"/>}<div className="relative flex items-center gap-4 rounded-xl border border-white bg-white p-3.5 shadow-[0_2px_8px_rgba(20,127,195,0.03)]"><span className={`grid h-10 w-10 shrink-0 place-items-center rounded-lg ${index === 4 ? "bg-primary text-white" : "bg-blue-light text-primary"}`}><Icon name={stage.icon}/></span><div className="flex-1"><p className="text-sm font-semibold">{stage.name}</p><p className="mt-0.5 text-xs text-muted">{stage.description}</p></div><span className="text-[11px] text-primary/50">0{index+1}</span></div></li>)}</ol><p className="mt-6 flex items-center gap-2 text-xs text-muted"><Icon name="verified" className="h-4 w-4 text-primary"/>Real skills. Real projects. Credible evidence.</p></div>; }

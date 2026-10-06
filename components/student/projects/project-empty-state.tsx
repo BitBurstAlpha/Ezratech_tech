@@ -1,0 +1,5 @@
+import { Icon } from "@/components/landing/icon";
+import { DashboardLink } from "@/components/student/dashboard/dashboard-card";
+export function ProjectEmptyState({ onClear }: { onClear?: () => void }) {
+  return <section className="rounded-xl border border-border bg-white px-6 py-14 text-center"><span className="mx-auto mb-5 grid h-12 w-12 place-items-center rounded-lg bg-blue-light text-primary"><Icon name="project" /></span><h2 className="text-xl font-semibold">No suitable projects available right now</h2><p className="mx-auto my-5 max-w-md text-sm leading-7 text-muted">New approved projects will appear here when they match your profile and availability.</p><div className="flex flex-wrap items-center justify-center gap-3"><DashboardLink href="/student/readiness" primary>Update Preferences</DashboardLink>{onClear && <button type="button" onClick={onClear} className="rounded-lg border border-border px-4 py-2.5 text-sm font-semibold text-primary hover:bg-blue-light">Clear Filters</button>}</div></section>;
+}

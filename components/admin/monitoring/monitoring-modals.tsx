@@ -1,0 +1,48 @@
+"use client";
+import { MessageContent } from "@/components/student/messages/message-content";
+
+import { useState } from "react";
+import { useDemoProgress } from "@/components/student/progress/demo-progress";
+import { ProjectField, ProjectSelect } from "@/components/sme/projects/project-fields";
+import { WorkspaceDialog, primaryButton, secondaryButton } from "@/components/student/workspace/workspace-ui";
+import { escalationReasons, pauseReasons, projectIssues, defaultIssueReview, type ScopeReview } from "./monitoring-data";
+import { MonitoringBadge } from "./monitoring-ui";
+export type MonitoringModal = { type: "issue" | "escalate" | "resolve"; id: string } | { type: "pause" | "resume" | "conversation" } | { type: "scope"; index: number };
+export function MonitoringModalView({ modal, onClose }: { modal: MonitoringModal; onClose: () => void }) {
+  const { progress, dispatch } = useDemoProgress();
+  const issue = "id" in modal ? projectIssues(progress).find(item => item.id === modal.id) : null;
+  const issueReview = issue ? progress.monitoring.issueReviews[issue.id] || defaultIssueReview : defaultIssueReview;
+  const scope = modal.type === "scope" ? progress.workspace.scopeChanges[modal.index] : null;
+  const [owner, setOwner] = useState(issue?.owner || "Sarah Collins");
+  const [notes, setNotes] = useState(issueReview.adminNotes);
+  const [reason, setReason] = useState(modal.type === "pause" ? pauseReasons[0] : escalationReasons[0]);
+  const [level, setLevel] = useState("Programme Review");
+  const [resolution, setResolution] = useState(issue?.id === "blocker" && issue.title === "Product Category Labels" ? 'Sarah Collins confirmed that "Home & Living" is the correct product category. Alex can continue with data cleaning.' : "");
+  const [studentInformed, setStudentInformed] = useState(false);
+  const [smeInformed, setSMEInformed] = useState(false);
+  const [scopeDecision, setScopeDecision] = useState<ScopeReview["decision"]>("approved");
+  const [workload, setWorkload] = useState("");
+  const [skills, setSkills] = useState("");
+  const [reviewedScope, setReviewedScope] = useState(false);
+  const [nextIssueAction, setNextIssueAction] = useState<"issue" | "escalate" | "resolve">("issue");
+  const type = modal.type === "issue" ? nextIssueAction : modal.type;
+  const active = progress.preStart.workspaceUnlocked && !progress.projectCompletion.smeApproved;
+  const title = type === "issue" ? "Project Issue Review" : type === "escalate" ? "Escalate Project Issue" : type === "resolve" ? "Resolve Issue" : type === "pause" ? "Pause Project" : type === "resume" ? "Resume Project" : type === "scope" ? "Scope Change Review" : "Project Conversation";
+  function submit(event: React.FormEvent) {
+    event.preventDefault();
+    if (!active) return;
+    if (type === "pause" && notes.trim()) dispatch({ type: "pauseMonitoredProject", reason, notes });
+    else if (type === "resume" && notes.trim()) dispatch({ type: "resumeMonitoredProject", note: notes });
+    else if (type === "issue" && issue) dispatch({ type: "reviewMonitoringIssue", id: issue.id, owner, notes });
+    else if (type === "escalate" && issue && notes.trim()) dispatch({ type: "escalateMonitoringIssue", id: issue.id, reason, notes, level });
+    else if (type === "resolve" && issue && resolution.trim() && studentInformed && smeInformed) dispatch({ type: "resolveMonitoringIssue", id: issue.id, resolution, studentInformed, smeInformed });
+    else if (type === "scope" && modal.type === "scope" && notes.trim() && workload.trim() && skills.trim() && reviewedScope) dispatch({ type: "reviewScopeChange", index: modal.index, review: { decision: scopeDecision, notes, workloadImpact: workload, skillsImpact: skills } });
+    else return;
+    onClose();
+  }
+  return <WorkspaceDialog title={title} onClose={onClose}>{type === "conversation" ? <><ol className="space-y-4">{progress.workspace.messages.map(item => <li key={item.id} className="rounded-lg border border-border p-4"><p className="text-xs font-semibold text-primary">{item.author}</p><MessageContent message={item} /></li>)}</ol><p className="mt-4 text-xs text-muted">Shared mock conversation · Read-only Admin preview</p></> : <form onSubmit={submit} className="space-y-5">
+    {issue && <div className="rounded-lg border border-border bg-section p-4"><p className="text-sm font-semibold">{issue.title}</p><p className="mt-3 text-xs leading-6">Issue Type: {issue.type === "Data Access" ? "Data Access / Clarification" : issue.type}<br />Reported By: {issue.reportedBy}<br />Current Owner: {issue.owner}</p><p className="mt-3 text-sm leading-7">{issue.description}</p><p className="mt-3 text-xs leading-6 text-muted">Impact on Project: {issue.impact}</p><div className="mt-3"><MonitoringBadge>{issue.status}</MonitoringBadge></div>{issueReview.resolution && <p className="mt-3 text-sm leading-7">Resolution: {issueReview.resolution}</p>}</div>}
+    {type === "issue" ? <><ProjectSelect label="Current Owner" value={owner} options={["Sarah Collins", "Alex Morgan", "EzraTech Programme Team", "EzraTech Leadership"]} onChange={setOwner} /><ProjectField label="Admin Notes" multiline required={false} value={notes} onChange={setNotes} /><div className="flex flex-wrap gap-3"><button type="submit" disabled={!active || issue?.status === "resolved"} className={primaryButton}>Assign Owner</button><button type="button" disabled={!active || issue?.status === "resolved"} className={secondaryButton} onClick={() => { setNotes(""); setNextIssueAction("escalate"); }}>Escalate</button><button type="button" disabled={!active || issue?.status === "resolved"} className={secondaryButton} onClick={() => setNextIssueAction("resolve")}>Resolve</button></div></> : type === "escalate" ? <><ProjectSelect label="Reason" value={reason} options={escalationReasons} onChange={setReason} /><ProjectField label="Escalation Notes" multiline value={notes} onChange={setNotes} /><ProjectSelect label="Select Level" value={level} options={["Programme Review", "Leadership Review"]} onChange={setLevel} /><button type="submit" disabled={!active || !notes.trim()} className={primaryButton}>Escalate Issue</button></> : type === "resolve" ? <><ProjectField label="Resolution" multiline value={resolution} onChange={setResolution} /><label className="flex items-center gap-3 text-sm"><input type="checkbox" checked={studentInformed} onChange={event => setStudentInformed(event.target.checked)} className="accent-primary" />Student informed</label><label className="flex items-center gap-3 text-sm"><input type="checkbox" checked={smeInformed} onChange={event => setSMEInformed(event.target.checked)} className="accent-primary" />SME informed</label><p className="text-xs leading-6 text-muted">These confirmations are simulated. No notification is sent.</p><button type="submit" disabled={!active || !resolution.trim() || !studentInformed || !smeInformed} className={primaryButton}>Confirm Resolution</button></> : type === "pause" || type === "resume" ? <>{type === "pause" && <ProjectSelect label="Pause Reason" value={reason} options={pauseReasons} onChange={setReason} />}<ProjectField label={type === "pause" ? "Reason" : "Resolution note"} multiline value={notes} onChange={setNotes} /><p className="text-xs leading-6 text-muted">{type === "pause" ? "Student and SME workspace activity will be paused in the shared demo." : "Student and SME workspaces will return to active once the resolution is recorded."}</p><button type="submit" disabled={!active || !notes.trim()} className={primaryButton}>{type === "pause" ? "Pause Project" : "Resume Project"}</button></> : scope && <><p className="text-xs leading-6 text-muted">Original Project Scope: Review anonymised sales data, analyse sales trends and build a Power BI dashboard.</p><dl className="space-y-4">{[{ label: "Requested Change", value: scope.change }, { label: "Reason", value: scope.reason }, { label: "Impact on Deliverables", value: scope.deliverablesImpact }, { label: "Impact on Timeline", value: scope.timelineImpact }].map(item => <div key={item.label}><dt className="text-xs text-muted">{item.label}</dt><dd className="mt-1 text-sm leading-7">{item.value}</dd></div>)}</dl><ProjectField label="Impact on Student Workload" value={workload} onChange={setWorkload} /><ProjectField label="Impact on Skills Required" value={skills} onChange={setSkills} /><ProjectSelect label="Admin Decision" value={scopeDecision === "approved" ? "Approve Change" : scopeDecision === "revision_requested" ? "Request Revision" : "Decline Change"} options={["Approve Change", "Request Revision", "Decline Change"]} onChange={value => setScopeDecision(value === "Approve Change" ? "approved" : value === "Request Revision" ? "revision_requested" : "declined")} /><ProjectField label="Review Notes" multiline value={notes} onChange={setNotes} /><label className="flex items-start gap-3 text-sm leading-6"><input type="checkbox" checked={reviewedScope} onChange={event => setReviewedScope(event.target.checked)} className="mt-1 accent-primary" />I have reviewed the effect on the student and project arrangement.</label><p className="text-xs leading-6 text-muted">Significant scope changes should not be applied without reviewing their effect on the student and project arrangement. This demo records the decision without automatically rewriting the agreed tasks or duration.</p><button type="submit" disabled={!active || !reviewedScope || !notes.trim() || !workload.trim() || !skills.trim()} className={primaryButton}>Record Scope Decision</button></>}
+    <button type="button" className={secondaryButton} onClick={onClose}>Cancel</button>
+  </form>}</WorkspaceDialog>;
+}

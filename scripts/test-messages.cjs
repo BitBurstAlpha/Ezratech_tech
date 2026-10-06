@@ -1,0 +1,47 @@
+/* eslint-disable @typescript-eslint/no-require-imports -- Reuse the isolated TypeScript test loader. */
+require('./test-outcomes.cjs');
+const assert = require('node:assert/strict');
+const { loadDemoScenario, defaultDemoSnapshot } = require('../lib/demo-state.ts');
+const { progressReducer } = require('../components/student/progress/progress-state.ts');
+const { studentUnreadCount, projectConversationAvailable, projectConversationId } = require('../components/student/messages/message-data.ts');
+let state = loadDemoScenario('active-project').progress;
+const act = action => { state = progressReducer(state, action); };
+assert.equal(studentUnreadCount(state), 1);
+act({ type: 'readProjectMessages', reader: 'student' });
+assert.equal(studentUnreadCount(state), 0);
+assert(state.workspace.messages.filter(message => message.author === 'Sarah Collins').every(message => message.status === 'read'));
+act({ type: 'readProjectMessages', reader: 'sme' });
+act({ type: 'sendWorkspaceMessage', author: 'Alex Morgan', text: ' Thanks, I have added the issue to my Week 2 update. ', attachment: 'week-2-update.pdf' });
+const sent = state.workspace.messages.at(-1);
+assert.equal(sent.text, 'Thanks, I have added the issue to my Week 2 update.');
+assert.equal(sent.attachment, 'week-2-update.pdf');
+assert.equal(sent.conversationId, projectConversationId);
+assert.equal(sent.senderRole, 'student'); assert.equal(sent.timestamp, 'Now'); assert.equal(sent.status, 'sent');
+assert.equal(state.workspace.messageUnread.sme, 1);
+act({ type: 'readProjectMessages', reader: 'sme' });
+assert.equal(state.workspace.messages.at(-1).status, 'read');
+assert.equal(state.workspace.messageUnread.sme, 0);
+act({ type: 'sendWorkspaceMessage', author: 'Sarah Collins', text: 'Thanks Alex, the category should be Retail.' });
+assert.equal(studentUnreadCount(state), 1);
+assert.equal(state.workspace.messages.at(-1).senderRole, 'sme');
+assert.deepEqual(JSON.parse(JSON.stringify(state)).workspace.messages, state.workspace.messages);
+assert.equal(progressReducer(state, { type: 'sendWorkspaceMessage', author: 'Alex Morgan', text: '   ' }), state);
+assert.equal(progressReducer(state, { type: 'sendWorkspaceMessage', author: 'Alex Morgan', text: 'x', attachment: 'real-file.exe' }), state);
+act({ type: 'sendWorkspaceMessage', author: 'Alex Morgan', text: '', attachment: 'cleaned-sales-data.xlsx' });
+assert.equal(state.workspace.messages.at(-1).attachment, 'cleaned-sales-data.xlsx');
+for (const id of ['cancelled-project', 'verified-experience']) {
+ const locked = loadDemoScenario(id).progress;
+ assert.equal(progressReducer(locked, { type: 'sendWorkspaceMessage', author: 'Alex Morgan', text: 'Blocked' }), locked);
+}
+const paused = { ...state, monitoring: { ...state.monitoring, paused: true } };
+assert.equal(progressReducer(paused, { type: 'sendWorkspaceMessage', author: 'Alex Morgan', text: 'Clarification while paused' }).workspace.messages.at(-1).text, 'Clarification while paused');
+const fresh = defaultDemoSnapshot().progress;
+assert.equal(projectConversationAvailable(fresh), false); assert.equal(studentUnreadCount(fresh), 0);
+assert.equal(progressReducer(fresh, { type: 'sendWorkspaceMessage', author: 'Alex Morgan', text: 'Blocked' }), fresh);
+const support = progressReducer(fresh, { type: 'sendSupportMessage', text: 'Please help with my assessment.' });
+assert.equal(support.workspace.supportMessages.at(-1).text, 'Please help with my assessment.');
+assert.deepEqual(support.workspace.messages, fresh.workspace.messages, 'support messages never enter the project conversation');
+const legacy = { ...state, workspace: { ...state.workspace, messageUnread: undefined, supportMessages: undefined } };
+assert.equal(progressReducer(legacy, { type: 'sendSupportMessage', text: 'Thanks' }).workspace.supportMessages.length, 4);
+assert.equal(studentUnreadCount(legacy), 1);
+console.log('Messaging checks passed: shared student/SME thread, attachments, read/unread, persistence, legacy state, support without a project and paused/cancelled/completed gates.');

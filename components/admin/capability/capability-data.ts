@@ -1,0 +1,18 @@
+export const capabilityRoute = "/admin/capability-reviews/northstar-sales-analysis/alex-morgan";
+export const capabilityLevels = { not_evidenced: "Not yet evidenced", guidance: "Can perform with guidance", independent: "Can perform independently on bounded tasks", review_others: "Can explain or review others' work" };
+export type CapabilityLevel = keyof typeof capabilityLevels;
+export const capabilityDefinitions = [
+  { key: "dataHandling", name: "Data Handling", evidence: ["Cleaned sales dataset", "Data quality notes", "Duplicate record handling", "SME feedback"], suggested: "independent", notes: "Project evidence shows independent handling of bounded data-quality tasks." },
+  { key: "dataAnalysis", name: "Data Analysis", evidence: ["Exploratory sales analysis", "Analysis summary", "Business trend identification", "Final presentation"], suggested: "independent", notes: "" },
+  { key: "sql", name: "SQL", evidence: ["SQL queries used during analysis", "Student contribution record", "Project evidence"], suggested: "independent", notes: "" },
+  { key: "powerBI", name: "Power BI", evidence: ["Dashboard deliverable", "SME review", "Final presentation"], suggested: "independent", notes: "" },
+  { key: "communication", name: "Communication", evidence: ["Weekly project updates", "Blocker communication", "Supervisor feedback", "Final presentation"], suggested: "independent", notes: "" },
+  { key: "projectDelivery", name: "Project Delivery", evidence: ["Task completion", "Milestones", "Weekly updates", "Final submission"], suggested: "guidance", notes: "" },
+  { key: "problemSolving", name: "Problem Solving", evidence: ["Duplicate record issue", "Product category issue", "Data-quality decisions"], suggested: "independent", notes: "" },
+] as const;
+export type CapabilityKey = typeof capabilityDefinitions[number]["key"] | "python";
+export type CapabilityReview = { projectId: string; studentId: string; status: "partial_review_required" | "pending" | "clarification_requested" | "under_review" | "approved"; capabilities: Record<CapabilityKey, { decision: CapabilityLevel; evidence: string[]; notes: string }>; reviewerNotes: string; clarification: { category: string; text: string } | null; verifiedExperienceReady: boolean };
+export function createCapabilityReview(): CapabilityReview { return { projectId: "northstar-sales-analysis", studentId: "alex-morgan", status: "pending", capabilities: Object.fromEntries([...capabilityDefinitions.map(item => [item.key, { decision: item.suggested, evidence: [...item.evidence], notes: item.notes }]), ["python", { decision: "not_evidenced", evidence: [], notes: "Not meaningfully evidenced during this project." }]]) as CapabilityReview["capabilities"], reviewerNotes: "The project provides sufficient evidence to confirm Alex's contribution in data handling, analysis, SQL, Power BI and professional communication.\n\nProject delivery was completed successfully within a supervised environment.\n\nPython is not included because it was not materially evidenced during this project.", clarification: null, verifiedExperienceReady: false }; }
+export const mockCapabilityReview = createCapabilityReview();
+export function confirmedCapabilities(review: CapabilityReview) { return capabilityDefinitions.filter(item => review.capabilities[item.key].decision !== "not_evidenced").map(item => ({ name: item.name, level: capabilityLevels[review.capabilities[item.key].decision], evidence: review.capabilities[item.key].evidence.join(" · ") })); }
+export const clarificationCategories = ["Student Contribution", "Deliverable Evidence", "SME Feedback", "Skill Evidence", "Project Dates", "Portfolio Permission", "Other"];

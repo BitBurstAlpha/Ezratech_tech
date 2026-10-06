@@ -1,0 +1,4 @@
+import { steps } from "./options";
+export function StepProgress({ currentStep }: { currentStep: number }) {
+  return <nav aria-label="Profile setup progress" className="mb-8"><ol className="grid grid-cols-2 gap-3 sm:grid-cols-5">{steps.map((step, index) => <li key={step} aria-current={index === currentStep ? "step" : undefined} className={`flex items-center gap-2.5 rounded-lg border px-3 py-3 text-xs font-medium ${index === currentStep ? "border-primary bg-blue-light text-primary" : "border-border bg-section text-muted"}`}><span className={`grid h-6 w-6 shrink-0 place-items-center rounded-full ${index === currentStep ? "bg-primary text-white" : index < currentStep ? "bg-blue-light text-primary" : "bg-border text-muted"}`} aria-hidden="true">{index < currentStep ? "✓" : index + 1}</span><span>Step {index + 1}<span className="mt-0.5 block font-semibold">{step}</span>{index < currentStep && <span className="sr-only">Completed</span>}</span></li>)}</ol></nav>;
+}
