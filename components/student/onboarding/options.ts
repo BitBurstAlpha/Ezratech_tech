@@ -18,5 +18,6 @@ export const descriptions = [
   "Tell us about any practical experience you already have.",
   "Choose the skills you have used before. You will have an opportunity to demonstrate them during the assessment.",
 ];
-export type Experience = { id: number; type: string; title: string; organisation: string; description: string; skills: string };
+export type EvidenceMetadata = { name: string; size: number };
+export type Experience = { id: number; type: string; title: string; organisation: string; description: string; skills: string; evidence?: EvidenceMetadata };
 export function blankExperience(id: number): Experience { return { id, type: "", title: "", organisation: "", description: "", skills: "" }; }

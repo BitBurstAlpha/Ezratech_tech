@@ -17,7 +17,7 @@ export function applicationJourney(status: ApplicationStatus) {
     { label: "SME Review", status: status === "sme_review" ? "Current" : "Completed" },
     { label: "SME Decision", status: status === "sme_review" ? "Pending" : status === "sme_accepted" ? "Accepted" : "Application Closed" },
     { label: "Student Confirmation", status: status === "sme_accepted" ? "Current" : "Pending" },
-    { label: "Pre-Start Checks", status: "Locked" },
+    { label: "Project Initiation Checklist", status: "Locked" },
     { label: "Project Workspace", status: "Locked" },
   ];
 }

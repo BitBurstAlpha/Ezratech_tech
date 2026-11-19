@@ -42,7 +42,7 @@ export const matchingNextSteps = [
   "EzraTech identifies project-ready students with relevant demonstrated skills.",
   "Suitable students can view the approved project.", "Students may express interest.",
   "Northstar Retail Ltd reviews relevant student evidence.", "Both sides must agree before the project begins.",
-  "Pre-start checks are completed before workspace access.",
+  "The Project Initiation Checklist is completed before workspace access.",
 ];
 export function transitionProjectReview(review: ProjectReview, status: ProjectReviewStatus, update?: DataAccessUpdate): ProjectReview {
   if (status === "under_review") return structuredClone(mockProjectReview);

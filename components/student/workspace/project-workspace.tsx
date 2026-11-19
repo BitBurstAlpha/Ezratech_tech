@@ -57,7 +57,7 @@ export function ProjectWorkspace() {
     event.preventDefault(); changeTab(workspaceTabs[next]); document.getElementById(`workspace-tab-${workspaceTabs[next]}`)?.focus();
   }
   if (projectCancelled(progress)) return <ClosedProjectBody role="student" />;
-  if (!workspaceUnlocked) return <DashboardCard title="Workspace Locked"><div className="mb-5 flex gap-3 text-sm leading-7 text-muted"><Icon name="lock" className="mt-1 h-5 w-5 shrink-0" /><p>Complete all required project confirmation and pre-start steps before accessing the workspace.</p></div><DashboardLink primary href="/student/applications/northstar-sales-analysis/confirm">Return to Pre-Start Checks</DashboardLink></DashboardCard>;
+  if (!workspaceUnlocked) return <DashboardCard title="Workspace Locked"><div className="mb-5 flex gap-3 text-sm leading-7 text-muted"><Icon name="lock" className="mt-1 h-5 w-5 shrink-0" /><p>Complete project confirmation and the Project Initiation Checklist before accessing the workspace.</p></div><DashboardLink primary href="/student/applications/northstar-sales-analysis/confirm">Return to Project Initiation Checklist</DashboardLink></DashboardCard>;
 
   if (progress.monitoring.paused && !completion.smeApproved) return <PausedProject />;
   return <div className="space-y-6 pb-16"><SharedMonitoringNotice />

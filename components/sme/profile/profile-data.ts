@@ -1,15 +1,15 @@
-import type { SMEProfile } from "../sme-data";
+import { organisationLocation, type SMEProfile } from "../sme-data";
 import type { DemoProgress } from "@/components/student/progress/progress-state";
 import type { ProjectDraft } from "../projects/project-data";
 export const companyProjectAreas = ["Data Analysis", "Reporting", "Power BI", "Business Analysis", "Process Improvement", "Customer Research", "Dashboard Prototyping"];
 export function organisationContact(profile: SMEProfile) { return `${profile.primaryContact.firstName} ${profile.primaryContact.lastName}`.trim(); }
 export function organisationSupervisor(profile: SMEProfile) { return profile.supervisesProjects === "Yes" ? { name: organisationContact(profile), jobTitle: profile.primaryContact.jobTitle, email: profile.primaryContact.email } : profile.supervisor; }
-export function organisationLocation(profile: SMEProfile) { return [profile.city, profile.country === "United Kingdom" ? "UK" : profile.country].filter(Boolean).join(", "); }
+export { organisationLocation };
 export function organisationWorkingStyles(profile: SMEProfile) { return profile.workingStyle === "Flexible" ? ["Remote", "Hybrid", "On-site"] : profile.workingStyle.split(" / ").filter(Boolean); }
 export function companyProfileChecklist(profile: SMEProfile) {
   const supervisor = organisationSupervisor(profile);
   return [
-    { label: "Company Details", complete: [profile.companyName, profile.industry, profile.companySize, profile.city, profile.country, profile.description].every(value => !!value.trim()) },
+    { label: "Company Details", complete: [profile.companyName, profile.industry, profile.companySize, organisationLocation(profile), profile.description].every(value => !!value.trim()) },
     { label: "Primary Contact", complete: [organisationContact(profile), profile.primaryContact.jobTitle, profile.primaryContact.email].every(value => !!value.trim()) },
     { label: "Authorised Contact", complete: !!organisationContact(profile) && !!profile.primaryContact.email.trim() },
     { label: "Supervisor", complete: [supervisor.name, supervisor.jobTitle, supervisor.email].every(value => !!value.trim()) && profile.finalReviewer === "Yes" },
@@ -25,7 +25,7 @@ export function profileProjectDraft(draft: ProjectDraft, profile: SMEProfile): P
   const styles = organisationWorkingStyles(profile);
   return { ...draft, company: profile.companyName, supervisionTime: profile.supportTime, workingStyle: styles.includes(draft.workingStyle) ? draft.workingStyle : styles[0] ?? "", supervisor: draft.supervisor.usePrimaryContact === "Yes" ? { ...draft.supervisor, ...supervisor } : draft.supervisor };
 }
-export type CompanyProfileEdits = Pick<SMEProfile, "description" | "companySize" | "city" | "country" | "headOffice" | "website" | "projectAreas" | "workingStyle" | "supportTime">;
+export type CompanyProfileEdits = Pick<SMEProfile, "companyLocation" | "description" | "companySize" | "city" | "country" | "headOffice" | "website" | "projectAreas" | "workingStyle" | "supportTime">;
 export function editCompanyProfile(profile: SMEProfile, edits: CompanyProfileEdits): SMEProfile {
-  return { ...profile, description: edits.description, companySize: edits.companySize, city: edits.city, country: edits.country, headOffice: edits.headOffice, website: edits.website, projectAreas: [...edits.projectAreas], workingStyle: edits.workingStyle, supportTime: edits.supportTime };
+  return { ...profile, description: edits.description, companySize: edits.companySize, city: edits.city, country: edits.country, headOffice: edits.headOffice === profile.city && edits.city !== profile.city ? edits.city : edits.headOffice, companyLocation: edits.companyLocation, website: edits.website, projectAreas: [...edits.projectAreas], workingStyle: edits.workingStyle, supportTime: edits.supportTime };
 }

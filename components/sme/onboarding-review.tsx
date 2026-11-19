@@ -1,8 +1,8 @@
-import { smeSteps, type SMEProfile } from "./sme-data";
+import { organisationLocation, smeSteps, type SMEProfile } from "./sme-data";
 export function OnboardingReview({ profile, onEdit }: { profile: SMEProfile; onEdit: (step: number) => void }) {
   const contact = profile.primaryContact;
   const sections = [
-    [{ label: "Company", value: profile.companyName }, { label: "Website", value: profile.website || "Not provided" }, { label: "Industry", value: profile.industry }, { label: "Company Size", value: profile.companySize }, { label: "Head Office", value: `${profile.headOffice} · ${profile.city}, ${profile.country}` }, { label: "Description", value: profile.description }],
+    [{ label: "Company", value: profile.companyName }, { label: "Website", value: profile.website || "Not provided" }, { label: "Industry", value: profile.industry }, { label: "Company Size", value: profile.companySize }, { label: "Company location", value: organisationLocation(profile) }, { label: "Description", value: profile.description }],
     [{ label: "Primary Contact", value: `${contact.firstName} ${contact.lastName}` }, { label: "Job Title", value: contact.jobTitle }, { label: "Work Email", value: contact.email }, { label: "Phone", value: contact.phone }, { label: "Project Supervisor", value: profile.supervisesProjects === "Yes" ? `${contact.firstName} ${contact.lastName} · ${contact.jobTitle} · ${contact.email}` : `${profile.supervisor.name} · ${profile.supervisor.jobTitle} · ${profile.supervisor.email}` }],
     [{ label: "Project Areas", value: profile.projectAreas.join(" · ") }, { label: "Reason for Joining", value: profile.joiningReason }, { label: "Suitable Project Available", value: profile.hasProject }, ...(profile.hasProject === "Yes" ? [{ label: "Initial Project", value: profile.projectDescription || "Not provided" }] : [])],
     [{ label: "Support Time", value: profile.supportTime }, { label: "Preferred Duration", value: profile.preferredDuration }, { label: "Working Style", value: profile.workingStyle }, { label: "Company Data", value: profile.companyData }, { label: "Named Final Reviewer", value: profile.finalReviewer }],

@@ -14,11 +14,18 @@ export const mockSMEProfile = {
   projectAreas: ["Data Analysis", "Reporting", "Power BI", "Business Analysis"], joiningReason: "Complete a small business project", hasProject: "Yes", projectDescription: "Understand monthly sales performance and develop a dashboard prototype.",
   supportTime: "Around 1 hour per week", preferredDuration: "4–6 weeks", workingStyle: "Remote / Hybrid", companyData: "Yes", finalReviewer: "Yes",
 };
-export type SMEProfile = typeof mockSMEProfile;
+export type SMEProfile = typeof mockSMEProfile & { companyLocation?: string };
+export function organisationLocation(profile: SMEProfile) {
+  if (profile.companyLocation !== undefined) return profile.companyLocation;
+  const office = profile.headOffice.trim();
+  const city = profile.city.trim();
+  const country = profile.country === "United Kingdom" ? "UK" : profile.country;
+  return [office && office !== city ? office : "", city, country].filter(Boolean).join(", ");
+}
 export const mockSMEOnboarding = { smeOnboardingComplete: false, step: 0, confirmations: [] as string[] };
 export function validateSMEStep(profile: SMEProfile, step: number): string {
   const email = (value: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
-  if (step === 0 && (![profile.companyName, profile.headOffice, profile.city, profile.country, profile.description].every(value => value.trim()) || !industries.includes(profile.industry) || !companySizes.includes(profile.companySize))) return "Complete the required organisation information.";
+  if (step === 0 && (![profile.companyName, organisationLocation(profile), profile.description].every(value => value.trim()) || !industries.includes(profile.industry) || !companySizes.includes(profile.companySize))) return "Complete the required organisation information.";
   if (step === 0 && profile.website && !/^https?:\/\/\S+$/i.test(profile.website)) return "Enter a website beginning with https:// or http://, or leave it blank.";
   if (step === 1 && (!Object.values(profile.primaryContact).every(value => value.trim()) || !email(profile.primaryContact.email) || !["Yes", "No"].includes(profile.supervisesProjects))) return "Complete the company contact information and choose who will supervise projects.";
   if (step === 1 && profile.supervisesProjects === "No" && (!Object.values(profile.supervisor).every(value => value.trim()) || !email(profile.supervisor.email))) return "Add the named supervisor’s name, job title and email.";
