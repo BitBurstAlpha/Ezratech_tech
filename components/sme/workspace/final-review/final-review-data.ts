@@ -27,7 +27,7 @@ export const mockFinalSMEReview: FinalSMEReview = {
 };
 export const finalChangeCategories = ["Dataset", "Analysis", "Dashboard", "Presentation", "Documentation", "Other"];
 export const defaultFinalChange = "Please add a comparison between the current month's sales and the previous month to the dashboard before final approval.";
-export const finalNextSteps = ["Project completion is recorded.", "SME feedback is saved in the demo record.", "EzraTech reviews the relevant project evidence.", "Supported skills and capability evidence are recorded.", "The completed project can appear in the student's verified experience record."];
+export const finalNextSteps = ["Project completion is recorded.", "The SME records final feedback and the post-project outcome.", "The student reviews the summary and acknowledges closure.", "EzraTech reviews the relevant project evidence.", "Supported skills and capability evidence are recorded.", "The completed project can appear in the student's verified experience record."];
 export const finalAcceptanceDistinction = "Project acceptance confirms that the agreed work was completed. EzraTech's reviewed experience record is prepared separately using the project evidence, student contribution and SME feedback. The SME is not automatically verifying every skill claimed by the student.";
 export function finalReviewStatus(completion: ProjectCompletion): FinalReviewStatus { return completion.smeApproved ? "accepted" : completion.changesRequested ? "changes_requested" : completion.resubmitted ? "resubmitted" : "pending"; }
 export function finalReviewReady(review: FinalSMEReview, submission: ProjectSubmission) {

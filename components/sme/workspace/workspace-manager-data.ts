@@ -1,3 +1,4 @@
+import { emptyClosure, updateClosure, type ClosureAction, type ClosureRecord } from "@/components/projects/closure/post-project-data";
 import { projectAttachmentAllowed, type DemoAttachment } from "@/components/student/messages/message-data";
 import { initiationChecklist } from "../setup/setup-data";
 import type { DemoProgress } from "@/components/student/progress/progress-state";
@@ -7,6 +8,7 @@ import type { SharedMessage } from "@/components/student/messages/message-data";
 export type ManagedStatus = "prestart" | "active" | "needs_attention" | "paused" | "completed" | "cancelled";
 export const statusLabels: Record<ManagedStatus, string> = { prestart: "Initiation Pending", active: "Active", needs_attention: "Needs Attention", paused: "Paused", completed: "Completed", cancelled: "Cancelled" };
 export type ManagedWorkspace = {
+  projectClosure?: ClosureRecord;
   activityLog?: string[];
   unread?: { student: number; sme: number };
   projectId: string; title: string; student: string; type: string; status: ManagedStatus; currentWeek: number; totalWeeks: number; progress: number;
@@ -73,10 +75,16 @@ export function workspaceList(records: Record<string, ManagedWorkspace>, progres
 export function workspaceCounts(workspaces: ManagedWorkspace[]) {
   return { active: workspaces.filter(project => ["active", "needs_attention"].includes(project.status)).length, prestart: workspaces.filter(project => project.status === "prestart").length, attention: workspaces.filter(project => project.status === "needs_attention").length, completed: workspaces.filter(project => project.status === "completed").length };
 }
-export type WorkspaceAction = { type: "startProject"; projectId: string } | { type: "read"; projectId: string; reader: "student" | "sme" } | { type: "task"; projectId: string; taskId: string; status: ManagedWorkspace["tasks"][number]["status"] } | { type: "message"; projectId: string; author: string; text: string; attachment?: DemoAttachment; senderRole?: "sme" | "student" } | { type: "file"; projectId: string; name: string; author: string } | { type: "feedback"; projectId: string; text: string } | { type: "setup"; projectId: string; key: keyof ManagedWorkspace["setup"]; value: boolean } | { type: "status"; projectId: string; status: "paused" | "active" | "completed" | "cancelled" };
+export type WorkspaceAction = { type: "closure"; projectId: string; action: ClosureAction } | { type: "startProject"; projectId: string } | { type: "read"; projectId: string; reader: "student" | "sme" } | { type: "task"; projectId: string; taskId: string; status: ManagedWorkspace["tasks"][number]["status"] } | { type: "message"; projectId: string; author: string; text: string; attachment?: DemoAttachment; senderRole?: "sme" | "student" } | { type: "file"; projectId: string; name: string; author: string } | { type: "feedback"; projectId: string; text: string } | { type: "setup"; projectId: string; key: keyof ManagedWorkspace["setup"]; value: boolean } | { type: "status"; projectId: string; status: "paused" | "active" | "completed" | "cancelled" };
 export function updateWorkspace(records: Record<string, ManagedWorkspace>, action: WorkspaceAction): Record<string, ManagedWorkspace> {
   const project = records[action.projectId];
   if (!project || project.projectId !== action.projectId) return records;
+  if (action.type === "closure") {
+    const accepted = project.status === "completed";
+    const record = project.projectClosure ?? emptyClosure(accepted);
+    const next = updateClosure(record, action.action, accepted, accepted, accepted);
+    return next === record ? records : { ...records, [project.projectId]: { ...project, projectClosure: next } };
+  }
   if (action.type === "read") {
     const unread = project.unread ?? { student: 0, sme: project.projectId === "customer-feedback-analysis" ? 2 : 0 };
     if (!unread[action.reader] && !project.messages.some(message => message.senderRole === (action.reader === "sme" ? "student" : "sme") && message.status !== "read")) return records;

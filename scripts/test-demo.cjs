@@ -23,10 +23,10 @@ assert.equal(baseline.review.matchingUnlocked, true);
 assert.equal(baseline.progress.matchingAvailability.waitlistStatus, 'inactive');
 assert.equal(monitoringValues(baseline.progress).openIssues, 0);
 assert.equal(Object.fromEntries(currentDemoSummary(baseline.progress, baseline.review)).Project, 'Not Started');
-assert.equal(demoScenarios.length, 14);
+assert.equal(demoScenarios.length, 18);
 for (const scenario of demoScenarios) {
  const state = loadDemoScenario(scenario.id);
- assert(fs.existsSync(path.join(__dirname, '..', 'app', scenario.route, 'page.tsx')), `scenario route ${scenario.route}`);
+ assert(fs.existsSync(path.join(__dirname, '..', 'app', scenario.route.replace('northstar-sales-analysis/closure', '[projectId]/closure'), 'page.tsx')), `scenario route ${scenario.route}`);
  assert.equal(projectCancelled(state.progress), scenario.stage === 'cancelled');
  if (state.progress.preStart.workspaceUnlocked) {
   assert.equal(projectsAccessible(state.progress), true, `earned access: ${scenario.id}`);
@@ -88,4 +88,4 @@ const registered = progressReducer(baseline.progress, { type: 'registerStudent' 
 assert.equal(registered.studentRegistered, true);
 assert.equal(registered.profileComplete, false);
 assert.equal(progressReducer(registered, { type: 'completeOnboarding' }).profileComplete, true);
-console.log('Demo checks passed: 14 coherent scenarios, prerequisite gates, scoped storage reset, default state, registration, credentials and all shortcut routes.');
+console.log('Demo checks passed: 18 coherent scenarios, prerequisite gates, scoped storage reset, default state, registration, credentials and all shortcut routes.');

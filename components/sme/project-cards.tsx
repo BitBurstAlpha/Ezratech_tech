@@ -65,6 +65,12 @@ export function useDashboardProjects() {
   const { progress } = useDemoProgress();
   const projects = workspaces.map(project => {
     const card = workspaceCard(project);
+    const closure = project.projectId === review.projectId ? progress.projectClosure : project.projectClosure;
+    if (project.status === "completed" || closure?.unmetCriteria) {
+      card.href = `/sme/projects/${project.projectId}/closure`;
+      card.needsAction = project.status === "completed" && (!closure || ["sme_review_pending","closure_not_started","sme_closure_completed"].includes(closure.status));
+      card.action = card.needsAction ? "Complete Project Closure" : closure?.status === "closure_completed" ? "View Closure Record" : "View Project Closure";
+    }
     if (project.projectId !== review.projectId) return card;
     if (progress.cancellation.week === 3) card.week = "3 of " + project.totalWeeks;
     if (["active", "needs_attention"].includes(project.status) && progress.projectCompletion.finalSubmitted) {
