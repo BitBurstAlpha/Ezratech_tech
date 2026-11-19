@@ -1,19 +1,31 @@
 import { projectAttachmentAllowed, type DemoAttachment } from "@/components/student/messages/message-data";
+import { initiationChecklist } from "../setup/setup-data";
 import type { DemoProgress } from "@/components/student/progress/progress-state";
 import { projectCancelled } from "@/components/projects/closure/closure-data";
 import { demoProgressValues } from "@/components/student/workspace/workspace-data";
 import type { SharedMessage } from "@/components/student/messages/message-data";
 export type ManagedStatus = "prestart" | "active" | "needs_attention" | "paused" | "completed" | "cancelled";
-export const statusLabels: Record<ManagedStatus, string> = { prestart: "Pre-start", active: "Active", needs_attention: "Needs Attention", paused: "Paused", completed: "Completed", cancelled: "Cancelled" };
+export const statusLabels: Record<ManagedStatus, string> = { prestart: "Initiation Pending", active: "Active", needs_attention: "Needs Attention", paused: "Paused", completed: "Completed", cancelled: "Cancelled" };
 export type ManagedWorkspace = {
+  activityLog?: string[];
   unread?: { student: number; sme: number };
   projectId: string; title: string; student: string; type: string; status: ManagedStatus; currentWeek: number; totalWeeks: number; progress: number;
   tasks: { id: string; title: string; status: "Not Started" | "In Progress" | "Completed"; weight: number }[];
   milestones: { title: string; taskIds: string[] }[]; messages: SharedMessage[]; files: { name: string; uploadedBy: string }[];
   meetings: { title: string; day: string; time: string }[]; updates: { week: number; text: string; time: string }[]; feedback: string[];
   issues: { id: string; projectId: string; title: string; status: string }[];
-  setup: { student: boolean; sme: boolean; agreement: boolean; data: boolean; start: boolean }; lastActivity: string;
+  setup: { student: boolean; sme: boolean; agreement: boolean; data: boolean; scope?: boolean; supervision?: boolean; start: boolean }; lastActivity: string;
 };
+export function managedChecks(project: ManagedWorkspace) {
+  const { student, sme, scope, supervision, agreement, data, start } = project.setup;
+  return { student, sme, scope: !!scope, supervisor: !!supervision, agreement, data, eligibility: start };
+}
+export function readyToStart(project: ManagedWorkspace) {
+  return project.status === "prestart" && Object.values(managedChecks(project)).every(Boolean);
+}
+export function workspaceStatusLabel(project: ManagedWorkspace) {
+  return readyToStart(project) ? "Ready to Start" : statusLabels[project.status];
+}
 const setup = { student: true, sme: true, agreement: true, data: true, start: true };
 const customer: ManagedWorkspace = {
   unread: { student: 0, sme: 2 }, projectId: "customer-feedback-analysis", title: "Customer Feedback Analysis", student: "Emma Clarke", type: "Customer Research", status: "active", currentWeek: 3, totalWeeks: 4, progress: 65,
@@ -54,13 +66,14 @@ export function northstarWorkspace(progress: DemoProgress): ManagedWorkspace | n
   const latest = progress.workspace.studentUpdates.find(update => update.week === 2);
   const issues = [...(!progress.workspace.blockerResolved && latest?.blockers ? [{ id: "category", projectId: "northstar-sales-analysis", title: "Product Category Clarification", status: "Awaiting SME Response" }] : []), ...progress.workspace.issues.map(issue => ({ id: String(issue.id), projectId: "northstar-sales-analysis", title: issue.type, status: "Open" }))];
   const status: ManagedStatus = projectCancelled(progress) ? "cancelled" : progress.projectCompletion.smeApproved ? "completed" : progress.monitoring.paused ? "paused" : !progress.preStart.workspaceUnlocked ? "prestart" : issues.length ? "needs_attention" : "active";
-  return { unread: progress.workspace.messageUnread ?? { student: 1, sme: 1 }, projectId: "northstar-sales-analysis", title: "Sales Performance Analysis", student: "Alex Morgan", type: "Data Analysis", status, currentWeek: progress.projectCompletion.tasksComplete ? 6 : 2, totalWeeks: 6, progress: demoProgressValues[progress.workspaceTasks.filter(task => task.status === "Completed").length], tasks: progress.workspaceTasks.map(task => ({ ...task, weight: 0 })), milestones: [], messages: progress.workspace.messages, files: progress.workspace.files, meetings: progress.workspace.meetings, updates: progress.workspace.studentUpdates.map(update => ({ week: update.week, text: update.completed, time: "Today" })), feedback: progress.workspace.weeklyFeedback.map(feedback => feedback.general), issues, setup: { student: progress.preStart.studentConfirmed, sme: progress.preStart.smeConfirmed, agreement: progress.preStart.projectAgreementReviewed, data: progress.preStart.dataAccessReady, start: progress.setupStarted }, lastActivity: "Today" };
+  const checks = initiationChecklist(progress);
+  return { unread: progress.workspace.messageUnread ?? { student: 1, sme: 1 }, projectId: "northstar-sales-analysis", title: "Sales Performance Analysis", student: "Alex Morgan", type: "Data Analysis", status, currentWeek: progress.projectCompletion.tasksComplete ? 6 : 2, totalWeeks: 6, progress: demoProgressValues[progress.workspaceTasks.filter(task => task.status === "Completed").length], tasks: progress.workspaceTasks.map(task => ({ ...task, weight: 0 })), milestones: [], messages: progress.workspace.messages, files: progress.workspace.files, meetings: progress.workspace.meetings, updates: progress.workspace.studentUpdates.map(update => ({ week: update.week, text: update.completed, time: "Today" })), feedback: progress.workspace.weeklyFeedback.map(feedback => feedback.general), issues, setup: { student: checks.student, sme: checks.sme, agreement: checks.agreement, data: checks.data, scope: checks.scope, supervision: checks.supervisor, start: checks.eligibility }, lastActivity: "Today" };
 }
 export function workspaceList(records: Record<string, ManagedWorkspace>, progress: DemoProgress) { const alex = northstarWorkspace(progress); return [...(alex ? [alex] : []), ...Object.values(records)]; }
 export function workspaceCounts(workspaces: ManagedWorkspace[]) {
   return { active: workspaces.filter(project => ["active", "needs_attention"].includes(project.status)).length, prestart: workspaces.filter(project => project.status === "prestart").length, attention: workspaces.filter(project => project.status === "needs_attention").length, completed: workspaces.filter(project => project.status === "completed").length };
 }
-export type WorkspaceAction = { type: "read"; projectId: string; reader: "student" | "sme" } | { type: "task"; projectId: string; taskId: string; status: ManagedWorkspace["tasks"][number]["status"] } | { type: "message"; projectId: string; author: string; text: string; attachment?: DemoAttachment; senderRole?: "sme" | "student" } | { type: "file"; projectId: string; name: string; author: string } | { type: "feedback"; projectId: string; text: string } | { type: "setup"; projectId: string; key: keyof ManagedWorkspace["setup"]; value: boolean } | { type: "status"; projectId: string; status: "paused" | "active" | "completed" | "cancelled" };
+export type WorkspaceAction = { type: "startProject"; projectId: string } | { type: "read"; projectId: string; reader: "student" | "sme" } | { type: "task"; projectId: string; taskId: string; status: ManagedWorkspace["tasks"][number]["status"] } | { type: "message"; projectId: string; author: string; text: string; attachment?: DemoAttachment; senderRole?: "sme" | "student" } | { type: "file"; projectId: string; name: string; author: string } | { type: "feedback"; projectId: string; text: string } | { type: "setup"; projectId: string; key: keyof ManagedWorkspace["setup"]; value: boolean } | { type: "status"; projectId: string; status: "paused" | "active" | "completed" | "cancelled" };
 export function updateWorkspace(records: Record<string, ManagedWorkspace>, action: WorkspaceAction): Record<string, ManagedWorkspace> {
   const project = records[action.projectId];
   if (!project || project.projectId !== action.projectId) return records;
@@ -76,7 +89,12 @@ export function updateWorkspace(records: Record<string, ManagedWorkspace>, actio
   if (action.type === "task" && major && ["Not Started", "In Progress", "Completed"].includes(action.status) && project.tasks.some(task => task.id === action.taskId)) { const tasks = project.tasks.map(task => task.id === action.taskId ? { ...task, status: action.status } : task); next = { ...project, tasks, progress: tasks.filter(task => task.status === "Completed").reduce((total, task) => total + task.weight, 0) }; }
   if (action.type === "file" && major && ["project-update.pdf", "milestone-summary.docx", "review-notes.txt"].includes(action.name)) next = { ...project, files: [...project.files, { name: action.name, uploadedBy: action.author }] };
   if (action.type === "feedback" && major && action.text.trim()) next = { ...project, feedback: [...project.feedback, action.text.trim()] };
-  if (action.type === "setup" && project.status === "prestart" && Object.hasOwn(project.setup, action.key)) { const setup = { ...project.setup, [action.key]: action.value }; const ready = Object.values(setup).every(Boolean); next = { ...project, setup, status: ready ? "active" : "prestart", currentWeek: ready ? 1 : 0 }; }
+  if (action.type === "setup" && project.status === "prestart" && ["agreement", "data", "scope", "supervision"].includes(action.key)) {
+    next = { ...project, setup: { ...project.setup, [action.key]: action.value } };
+  }
+  if (action.type === "startProject" && readyToStart(project)) {
+    next = { ...project, status: "active", currentWeek: 1, activityLog: [...(project.activityLog ?? []), "SME started " + project.title] };
+  }
   if (action.type === "status" && project.status !== "prestart") {
     if (action.status === "active" && project.status === "paused") next = { ...project, status: project.issues.length ? "needs_attention" : "active" };
     if (action.status === "paused" && major) next = { ...project, status: "paused" };

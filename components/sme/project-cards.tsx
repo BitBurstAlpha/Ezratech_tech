@@ -3,7 +3,7 @@ import { useDemoProgress } from "@/components/student/progress/demo-progress";
 import { SMEAction, SMEDetail } from "./dashboard-ui";
 import { mockReviewProject, type ProjectReviewStatus } from "./projects/review-data";
 import { useSMEProjectDraft } from "./projects/project-state";
-import { statusLabels, type ManagedWorkspace } from "./workspace/workspace-manager-data";
+import { readyToStart, workspaceStatusLabel, type ManagedWorkspace } from "./workspace/workspace-manager-data";
 import { useSMEWorkspaces } from "./workspace/workspace-manager-state";
 
 type DashboardProject = {
@@ -34,10 +34,10 @@ function workspaceCard(project: ManagedWorkspace): DashboardProject {
   if (northstar && closed) href += status === "completed" ? "/review" : "/cancelled";
   return {
     id, title, stage: initiation ? "Project initiation" : closed ? "Closure" : "Delivery",
-    status: initiation ? "Initiation Pending" : statusLabels[status],
+    status: status === "needs_attention" ? "Active · Needs Attention" : workspaceStatusLabel(project),
     week: initiation ? "Not started" : `${project.currentWeek} of ${project.totalWeeks}`,
     student: project.setup.student ? project.student : undefined,
-    action: initiation ? "Complete Project Initiation Checklist" : status === "completed" ? "View Completed Project" : status === "cancelled" ? "View Cancelled Project" : "Open Workspace",
+    action: readyToStart(project) ? "Start Project" : initiation ? "Complete Project Initiation Checklist" : status === "completed" ? "View Completed Project" : status === "cancelled" ? "View Cancelled Project" : "Open Workspace",
     href, needsAction: initiation || status === "needs_attention",
   };
 }
@@ -66,7 +66,6 @@ export function useDashboardProjects() {
   const projects = workspaces.map(project => {
     const card = workspaceCard(project);
     if (project.projectId !== review.projectId) return card;
-    if (project.status === "prestart") card.needsAction = !project.setup.sme;
     if (progress.cancellation.week === 3) card.week = "3 of " + project.totalWeeks;
     if (["active", "needs_attention"].includes(project.status) && progress.projectCompletion.finalSubmitted) {
       card.stage = progress.projectCompletion.changesRequested ? "Revision requested" : "Final review";

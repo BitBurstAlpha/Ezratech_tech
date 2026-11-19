@@ -5,7 +5,7 @@ import { useDemoStoredState } from "@/components/demo/use-demo-stored-state";
 import { defaultDemoProgress } from "@/lib/demo-state";
 const ProgressContext = createContext<{ progress: DemoProgress; dispatch: Dispatch<ProgressAction> } | null>(null);
 export function DemoProgressProvider({ children }: { children: ReactNode }) {
-  const [progress, setProgress, hydrated] = useDemoStoredState("progress", defaultDemoProgress);
+  const [progress, setProgress, hydrated] = useDemoStoredState("progress", defaultDemoProgress, { syncTabs: true });
   const dispatch = useCallback((action: ProgressAction) => setProgress(current => progressReducer(current, action)), [setProgress]);
   if (!hydrated) return <p role="status" className="p-5 text-sm text-muted">Restoring demo progress…</p>;
   return <ProgressContext.Provider value={{ progress, dispatch }}>{children}</ProgressContext.Provider>;

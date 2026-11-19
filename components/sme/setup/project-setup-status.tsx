@@ -1,62 +1,55 @@
 "use client";
+import { useState } from "react";
 import { useSME } from "../sme-state";
 import { organisationSupervisor } from "../profile/profile-data";
-import { CompanyContext } from "@/components/sme/profile/company-context";
-import { useState, type FormEvent } from "react";
-import { useRouter } from "next/navigation";
 import { useDemoProgress } from "@/components/student/progress/demo-progress";
 import { demoAgreements } from "@/components/student/applications/pre-start/pre-start-data";
 import { SMEDashboardShell } from "../dashboard-shell";
 import { SMEAction, SMECard, SMEDetail } from "../dashboard-ui";
 import { CandidateModal } from "../candidates/candidate-ui";
-import { Icon } from "@/components/landing/icon";
-import { smePrimary } from "../sme-shell";
 import { useSMEProjectDraft } from "../projects/project-state";
-import { workspacePrerequisites } from "@/components/student/progress/progress-state";
-import { mockProjectSetupStatus, smeResponsibilities } from "./setup-data";
+import { mockReviewProject as project } from "../projects/review-data";
+import { initiationChecklist, projectInitiation, scope, supervisor, supervisionTime, communication, agreement, dataAccess } from "./setup-data";
+import { StartProject } from "./start-project";
 
 export function SMEProjectSetupStatus() {
   const { profile } = useSME();
-  const supervisor = organisationSupervisor(profile);
-  const { progress, dispatch } = useDemoProgress();
-  const router = useRouter();
-  const [agreement, setAgreement] = useState<typeof demoAgreements[number] | null>(null);
+  const name = organisationSupervisor(profile).name;
   const { review } = useSMEProjectDraft();
-  const dataAccess = review.submittedUpdate;
-  const accessMethod = dataAccess ? dataAccess.accessMethod === "Other" ? dataAccess.otherAccessMethod : dataAccess.accessMethod : "Secure project workspace";
-  const preStart = progress.preStart;
-  const setup = { ...mockProjectSetupStatus, studentInterest: progress.interestSubmitted, smeAccepted: progress.applicationStatus === "sme_accepted", studentConfirmed: preStart.studentConfirmed, smeConfirmed: preStart.smeConfirmed, availabilityConfirmed: preStart.availabilityConfirmed, eligibilityRecorded: preStart.eligibilityAcknowledged, projectAgreementReviewed: preStart.projectAgreementReviewed, ndaReviewed: preStart.ndaReviewed, portfolioPermissionReviewed: preStart.portfolioPermissionReviewed, expectationsConfirmed: preStart.expectationsConfirmed, supervisorConfirmed: preStart.supervisorConfirmed, dataAccessReady: preStart.dataAccessReady, workspaceUnlocked: preStart.workspaceUnlocked, projectStatus: preStart.workspaceUnlocked ? "active" : "pre_start" };
-  const complete = setup.smeAccepted && workspacePrerequisites(progress);
-  const checks = [
-    { label: "Student Confirmation", done: setup.studentConfirmed, status: "Complete" },
-    { label: "Availability Confirmation", done: setup.availabilityConfirmed, status: "Complete" },
-    { label: "Eligibility Information", done: setup.eligibilityRecorded, status: "Recorded" },
-    { label: "Project Participation Agreement", done: setup.projectAgreementReviewed, status: "Reviewed" },
-    { label: "Confidentiality / NDA", done: setup.ndaReviewed, status: "Reviewed" },
-    { label: "Portfolio Permission", done: setup.portfolioPermissionReviewed, status: "Reviewed" },
-    { label: "Project Expectations", done: setup.expectationsConfirmed, status: "Reviewed" },
-    { label: "SME Confirmation", done: setup.smeConfirmed, status: "Complete" },
-    { label: "Supervisor Confirmation", done: setup.supervisorConfirmed, status: "Complete" },
+  const { progress, dispatch } = useDemoProgress();
+  const [preview, setPreview] = useState<typeof demoAgreements[number] | null>(null);
+  const checks = initiationChecklist(progress);
+  const { projectStatus } = projectInitiation(progress);
+  const pending = projectStatus === "not_started";
+  const values = progress.smeResponsibilityConfirmations;
+  const status = { active: "Active", paused: "Paused", completed: "Completed", cancelled: "Cancelled", not_started: Object.values(checks).every(Boolean) ? "Ready to Start" : "Initiation Pending" }[projectStatus];
+  function confirmation(keys: string[], label: string) {
+    const checked = keys.every(key => values.includes(key));
+    return <label className="mt-3 flex items-start gap-2 text-sm"><input type="checkbox" className="mt-1 accent-primary" disabled={!checks.sme || !pending} checked={checked} onChange={() => dispatch({ type: "setSMEResponsibilities", values: checked ? values.filter(value => !keys.includes(value)) : [...values, ...keys] })} />{label}</label>;
+  }
+  const rows = [
+    { title: "Student Acceptance", done: checks.student, text: checks.student ? "Alex Morgan has confirmed participation in the project." : "Awaiting participation confirmation from Alex Morgan." },
+    { title: "SME Acceptance", done: checks.sme, text: checks.sme ? "The SME has confirmed the selected student and agreed to proceed." : "Confirm the selected student in candidate review.", control: !checks.sme && <SMEAction href="/sme/projects/northstar-sales-analysis/candidates/alex-morgan">Review Candidate</SMEAction> },
+    { title: "Project Scope Confirmation", done: checks.scope, text: "Review the approved objectives, expected deliverables, six-week duration, weekly workload and agreed acceptance criteria.", control: confirmation([scope], "I confirm the approved project scope.") },
+    { title: "Supervisor Confirmation", done: checks.supervisor, text: `${name} will provide ${profile.supportTime} of supervision, provide student feedback and follow the agreed communication arrangements.`, control: confirmation([supervisor, supervisionTime, communication], "I confirm supervision, feedback and communication arrangements.") },
+    { title: "Agreement and Confidentiality", done: checks.agreement, text: "Both parties must complete their agreement requirements in this prototype.", control: <>
+      <ul className="mt-2 space-y-1">{demoAgreements.map(item => <li key={item.key} className="text-sm"><button type="button" onClick={() => setPreview(item)} className="font-medium text-primary underline">{item.title}</button> · Student review {progress.preStart[item.key] ? "completed" : "pending"}</li>)}</ul>
+      {confirmation([agreement], "I confirm completion of the required project agreement and NDA for this demo.")}
+    </> },
+    { title: "Data and Resource Access", done: checks.data, text: `Approved resources include anonymised sample sales data, the project brief and reporting materials. Permitted tools include SQL, Excel and Power BI. Access method: ${review.submittedUpdate?.otherAccessMethod || review.submittedUpdate?.accessMethod || "Secure project workspace"}. Customer identifiers, live payment access and external publishing are restricted.`, control: confirmation([dataAccess], "I confirm the student will have access to the approved resources.") },
+    { title: "Eligibility and Other Required Checks", done: checks.eligibility, text: `Student pre-start record: eligibility acknowledgement ${progress.preStart.eligibilityAcknowledged ? "recorded" : "pending"}, availability ${progress.preStart.availabilityConfirmed ? "confirmed" : "pending"}, project expectations ${progress.preStart.expectationsConfirmed ? "confirmed" : "pending"}. Legal eligibility verification is outside this demo.` },
   ];
-  const stages = [
-    { label: "Student Interest", status: setup.studentInterest ? "Completed" : "Pending" },
-    { label: "SME Acceptance", status: setup.smeAccepted ? "Completed" : "Current" },
-    { label: "Student Confirmation", status: setup.studentConfirmed ? "Completed" : setup.smeAccepted ? "Current" : "Locked" },
-    { label: "Project Initiation Checklist", status: complete ? "Completed" : setup.studentConfirmed ? "Current" : "Locked" },
-    { label: "Workspace Access", status: complete ? "Ready to Open" : "Locked" },
-    { label: "Project Active", status: progress.projectCompletion.smeApproved ? "Completed" : setup.projectStatus === "active" ? "Active" : "Locked" },
-  ];
-  function confirmSME(event: FormEvent<HTMLFormElement>) { event.preventDefault(); if (!setup.smeAccepted || !smeResponsibilities.every(item => progress.smeResponsibilityConfirmations.includes(item))) return; dispatch({ type: "confirmSMEReadiness" }); }
-  function openWorkspace() { if (!complete) return; dispatch({ type: "unlockWorkspace" }); router.push("/sme/workspace/northstar-sales-analysis"); }
-  return <SMEDashboardShell activeItem="Projects" title="Project Setup Status" subtitle="Track the Project Initiation Checklist requirements before the project workspace opens.">
-    <SMECard title="Sales Performance Analysis" action={<span className={`rounded-full px-3 py-1 text-xs font-semibold ${complete ? "bg-green-50 text-green-700" : "bg-blue-light text-primary"}`}>{progress.projectCompletion.smeApproved ? "Completed" : setup.workspaceUnlocked ? "Active" : "Initiation Pending"}</span>}><p className="mb-5 text-sm text-muted">Northstar Retail Ltd</p><dl className="grid grid-cols-2 gap-5 sm:grid-cols-3">{setup.studentConfirmed && <SMEDetail label="Assigned student">Alex Morgan</SMEDetail>}<SMEDetail label="Supervisor">{supervisor.name}</SMEDetail><SMEDetail label="Duration">6 weeks</SMEDetail><SMEDetail label="Weekly Commitment">6 hours</SMEDetail><SMEDetail label="Current Stage">{progress.projectCompletion.smeApproved ? "Project Completed" : setup.workspaceUnlocked ? "Project Active" : "Project initiation"}</SMEDetail><SMEDetail label="Project Status">{progress.projectCompletion.smeApproved ? "Completed" : setup.workspaceUnlocked ? "Active" : "Initiation Pending"}</SMEDetail></dl></SMECard>
-    {!setup.smeAccepted && <section className="rounded-xl border border-amber-200 bg-amber-50 p-5"><h2 className="font-semibold">Awaiting SME Acceptance</h2><p className="my-3 text-sm leading-6 text-muted">Select Alex Morgan to continue to mutual confirmation. Readiness and workspace access are locked until the selection is confirmed.</p><SMEAction href="/sme/projects/northstar-sales-analysis/candidates/alex-morgan">Review Candidate</SMEAction></section>}
-    <nav aria-label="Project setup journey"><ol className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-6">{stages.map((stage, index) => <li key={stage.label} aria-current={stage.status === "Current" ? "step" : undefined} className={`rounded-lg border p-4 ${["Completed", "Active", "Ready to Open"].includes(stage.status) ? "border-green-100 bg-green-50 text-green-700" : stage.status === "Current" ? "border-primary/20 bg-blue-light text-primary" : "border-border bg-white text-muted"}`}><p className="text-xs">Step {index + 1}</p><p className="mt-2 text-sm font-semibold">{stage.label}</p><p className="mt-3 flex items-center gap-1 text-xs">{stage.status === "Locked" && <Icon name="lock" className="h-3.5 w-3.5" />}{stage.status === "Completed" && <Icon name="check" className="h-3.5 w-3.5" />}{stage.status}</p></li>)}</ol></nav>
-    <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)]"><div className="space-y-6"><SMECard title="Mutual Confirmation"><dl className="grid grid-cols-2 gap-5"><SMEDetail label="SME Decision">{setup.smeAccepted ? "Accepted" : "Pending"}</SMEDetail><SMEDetail label="Student Decision">{setup.studentConfirmed ? "Confirmed" : "Pending"}</SMEDetail><SMEDetail label="Project Scope">{setup.studentConfirmed ? "Confirmed" : "Pending"}</SMEDetail><SMEDetail label="Weekly Commitment">{setup.availabilityConfirmed ? "Confirmed" : "Pending"}</SMEDetail><SMEDetail label="Working Style">{setup.availabilityConfirmed ? "Confirmed" : "Pending"}</SMEDetail></dl>{setup.smeAccepted && !setup.studentConfirmed && <div className="mt-5 rounded-lg bg-blue-light p-4"><h3 className="text-sm font-semibold text-primary">Waiting for Student Confirmation</h3><p className="mt-2 text-sm leading-6 text-muted">Alex Morgan needs to confirm that the project still fits their availability before the Project Initiation Checklist can be completed.</p></div>}</SMECard><SMECard title="Project Initiation Checklist"><dl className="space-y-3">{checks.map(check => <div key={check.label} className="flex items-start justify-between gap-4 rounded-lg border border-border p-3"><dt className="text-sm">{check.label}</dt><dd className={`flex shrink-0 items-center gap-1.5 text-xs font-medium ${check.done ? "text-green-700" : "text-muted"}`}><Icon name={check.done ? "check" : "clock"} className="h-4 w-4" />{check.done ? check.status : "Pending"}</dd></div>)}</dl></SMECard><SMECard title="SME Responsibilities"><form onSubmit={confirmSME}><fieldset disabled={!setup.smeAccepted || setup.smeConfirmed} className="space-y-4">{smeResponsibilities.map(item => <label key={item} className="flex items-start gap-3 text-sm leading-6"><input type="checkbox" required checked={progress.smeResponsibilityConfirmations.includes(item)} onChange={() => dispatch({ type: "setSMEResponsibilities", values: progress.smeResponsibilityConfirmations.includes(item) ? progress.smeResponsibilityConfirmations.filter(value => value !== item) : [...progress.smeResponsibilityConfirmations, item] })} className="mt-1 h-4 w-4 shrink-0 accent-primary" />{item === smeResponsibilities[1] ? `I confirm ${supervisor.name} will supervise the project.` : item === smeResponsibilities[2] ? `I confirm ${profile.supportTime} of supervision is available.` : item}</label>)}</fieldset><button type="submit" disabled={!setup.smeAccepted || setup.smeConfirmed || !smeResponsibilities.every(item => progress.smeResponsibilityConfirmations.includes(item))} className={`${smePrimary} mt-6`}>{setup.smeConfirmed ? "SME Readiness Confirmed" : "Confirm SME Readiness"}</button>{setup.smeConfirmed && <p role="status" className="mt-3 text-xs text-green-700">SME and supervisor confirmed. The student view now shows SME Confirmed.</p>}</form></SMECard></div><div className="space-y-6"><SMECard title="Data Access"><dl className="space-y-5"><SMEDetail label="Dataset">Anonymised sales data</SMEDetail><SMEDetail label="Customer-identifiable information">None</SMEDetail><SMEDetail label="Access Method">{accessMethod}</SMEDetail><SMEDetail label="NDA">{setup.ndaReviewed ? "Reviewed" : "Pending"}</SMEDetail><SMEDetail label="Status"><span className="text-green-700">{setup.dataAccessReady ? "Ready" : "Pending"}</span></SMEDetail></dl><p className="mt-5 rounded-lg bg-amber-50 p-4 text-xs leading-6 text-amber-900">No project data should be shared before the Project Initiation Checklist is complete.</p></SMECard><SMECard title="Agreements"><div className="space-y-5">{demoAgreements.map(item => <article key={item.key} className="border-b border-border pb-5 last:border-0 last:pb-0"><h3 className="text-sm font-semibold">{item.key === "portfolioPermissionReviewed" ? "Portfolio Permission" : item.title}</h3><p className={`my-3 text-xs ${preStart[item.key] ? "text-green-700" : "text-muted"}`}>{preStart[item.key] ? "Reviewed" : "Pending"}</p><button type="button" onClick={() => setAgreement(item)} aria-label={`View Demo Agreement: ${item.title}`} className="rounded-lg border border-border px-3 py-2 text-xs font-semibold text-primary hover:bg-blue-light">View Demo Agreement</button></article>)}</div></SMECard></div></div>
-    <section className={`rounded-xl border p-6 sm:p-8 ${complete ? "border-green-200 bg-white" : "border-primary/15 bg-blue-light"}`}><div className="flex flex-wrap items-center justify-between gap-3"><h2 className="text-xl font-semibold">Project Workspace</h2><span className={`rounded-full px-3 py-1 text-xs font-semibold ${complete ? "bg-green-50 text-green-700" : "bg-white text-muted"}`}>{complete ? "Ready to Open" : "Locked"}</span></div><p className="mt-3 text-sm leading-7 text-muted">{complete ? "Both sides have confirmed participation and the Project Initiation Checklist is complete." : "The workspace will open once both sides have confirmed participation and the Project Initiation Checklist is complete."}</p>{complete && <dl className="mt-5 grid grid-cols-2 gap-5 sm:grid-cols-3"><SMEDetail label="Student">Confirmed</SMEDetail><SMEDetail label="SME">Confirmed</SMEDetail><SMEDetail label="Agreements">Reviewed</SMEDetail><SMEDetail label="Eligibility">Recorded</SMEDetail><SMEDetail label="Data Access">Ready</SMEDetail><SMEDetail label="Supervisor">Confirmed</SMEDetail></dl>}<button type="button" disabled={!complete} onClick={openWorkspace} className={`${smePrimary} mt-6`}>Open Project Workspace</button></section>
-    <div className="flex flex-wrap gap-3"><SMEAction href="/sme/dashboard">Return to Dashboard</SMEAction><SMEAction href="/student/applications/northstar-sales-analysis/confirm">View Student Project Initiation Checklist</SMEAction></div>
-    <CompanyContext />
-    <footer className="flex flex-wrap gap-x-3 gap-y-1 text-xs leading-6 text-muted"><span className="font-medium">Prototype Demo</span><p>Confirmation, agreements and the Project Initiation Checklist shown here use simulated data.</p></footer>
-    {agreement && <CandidateModal title={agreement.title} onDismiss={() => setAgreement(null)}><p className="text-sm leading-7 text-muted">{agreement.text}</p><p className="mt-5 text-xs leading-6 text-muted">This is a mock preview for the prototype. It is not a legal document or signature. Student review status comes from the shared Project Initiation Checklist.</p><button type="button" onClick={() => setAgreement(null)} className="mt-5 rounded-lg border border-border px-4 py-2 text-sm font-semibold text-primary">Close Preview</button></CandidateModal>}
+  return <SMEDashboardShell activeItem="Projects" title="Project Initiation Checklist" subtitle="Complete the required confirmations before starting the project and activating the workspace.">
+    {pending ? <StartProject title={project.title} student="Alex Morgan" supervisor={name} duration={project.duration} checks={Object.values(checks)} onStart={() => dispatch({ type: "startProject" })} /> :
+      <SMECard title={projectStatus === "active" ? "Project Started Successfully" : status}><SMEAction primary href={`/sme/workspace/${project.id}${projectStatus === "cancelled" ? "/cancelled" : ""}`}>Open Workspace</SMEAction></SMECard>}
+    <SMECard title={project.title} action={<span className="text-sm font-semibold text-primary">{status}</span>}>
+      <dl className="grid gap-4 sm:grid-cols-3"><SMEDetail label="Company">{profile.companyName}</SMEDetail><SMEDetail label="Student">Alex Morgan</SMEDetail><SMEDetail label="Supervisor">{name}</SMEDetail><SMEDetail label="Duration">{project.duration}</SMEDetail><SMEDetail label="Expected Commitment">6 hours/week</SMEDetail></dl>
+    </SMECard>
+    <SMECard title="Required confirmations"><ol className="divide-y divide-border">{rows.map(row => <li key={row.title} className="py-4 first:pt-0">
+      <div className="flex flex-wrap justify-between gap-2"><h3 className="font-semibold">{row.title}</h3><span className={row.done ? "text-sm text-green-700" : "text-sm text-muted"}>{row.done ? "Completed" : "Pending"}</span></div>
+      <p className="mt-2 text-sm leading-6 text-muted">{row.text}</p>{row.control}
+    </li>)}</ol></SMECard>
+    <SMEAction href="/sme/dashboard">Return to Dashboard</SMEAction>
+    {preview && <CandidateModal title={preview.title} onDismiss={() => setPreview(null)}><p className="text-sm leading-7">{preview.text}</p><p className="mt-3 text-xs text-muted">Prototype agreement preview. No electronic signature is collected.</p></CandidateModal>}
   </SMEDashboardShell>;
 }

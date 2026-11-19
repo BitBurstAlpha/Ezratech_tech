@@ -56,10 +56,17 @@ act({ type: 'smeAcceptCandidate' }); refresh();
 assert.equal(state.applicationStatus, 'sme_accepted'); assert.equal(workspaceAccessible(state), false);
 assert.equal(state.completedActivities.length, 3);
 assert.equal(state.assessment.reassessment.status, 'completed', 'SME acceptance preserves earned reassessment');
+assert.equal(progressReducer(state, { type: 'startProject' }), state, 'missing student acceptance prevents start');
 for (const { key } of preStartChecklist) { act({ type: 'setPreStart', key, value: true }); refresh(); assert.equal(workspaceAccessible(state), false, 'student checks alone do not unlock workspace'); }
+assert.equal(progressReducer(state, { type: 'startProject' }), state, 'student checks alone cannot start project');
+act({ type: 'setSMEResponsibilities', values: smeResponsibilities.slice(0, -1) });
+assert.equal(progressReducer(state, { type: 'startProject' }), state, 'agreement requires explicit SME confirmation');
 act({ type: 'setSMEResponsibilities', values: [...smeResponsibilities] }); refresh();
 assert.equal(workspaceAccessible(state), false);
-act({ type: 'confirmSMEReadiness' }); refresh();
+assert.equal(workspacePrerequisites(state), true, 'all checks complete while workspace is locked');
+act({ type: 'startProject' }); refresh();
+assert.equal(progressReducer(state, { type: 'startProject' }), state, 'duplicate starts are ignored');
+assert.equal(state.monitoring.activity.filter(event => event.text === 'SME started Sales Performance Analysis').length, 1);
 assert.equal(state.preStart.workspaceUnlocked, true); assert.equal(workspaceAccessible(state), true);
 assert.equal(workspacePrerequisites(state), true);
 for (const patch of [{ projectReady: false }, { interestSubmitted: false }, { applicationStatus: 'sme_review' }]) assert.equal(workspacePrerequisites({ ...state, ...patch }), false, 'unlock transitions require every project-start condition');
@@ -67,7 +74,7 @@ assert.equal(projectsAccessible({ ...defaultDemoSnapshot().progress, projectRead
 assert.equal(workspaceAccessible({ ...defaultDemoSnapshot().progress, preStart: { ...defaultDemoSnapshot().progress.preStart, workspaceUnlocked: true } }), true, 'workspace guards read only the canonical unlock flag');
 assert.equal(workspaceAccessible({ ...state, preStart: { ...state.preStart, workspaceUnlocked: false } }), false);
 act({ type: 'setPreStart', key: 'studentConfirmed', value: false }); refresh();
-assert.equal(state.preStart.workspaceUnlocked, false); assert.equal(workspaceAccessible(state), false);
+assert.equal(state.preStart.workspaceUnlocked, true, 'started projects retain their confirmed checks'); assert.equal(workspaceAccessible(state), true);
 const fresh = defaultDemoSnapshot().progress;
 assert.equal(progressReducer(fresh, { type: 'completeReadiness' }), fresh);
 assert.equal(progressReducer(fresh, { type: 'smeAcceptCandidate' }), fresh);

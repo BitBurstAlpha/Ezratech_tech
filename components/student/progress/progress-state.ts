@@ -9,12 +9,12 @@ import { createProjectMonitoring, projectIssues, defaultIssueReview, type Projec
 import { createCapabilityReview, confirmedCapabilities, type CapabilityReview, type CapabilityKey, type CapabilityLevel } from "@/components/admin/capability/capability-data";
 import { mockFinalSMEReview, finalReviewReady, type FinalSMEReview, type FinalCriterionKey, type FinalFeedbackKey, type PortfolioPermissionKey } from "@/components/sme/workspace/final-review/final-review-data";
 import { createWorkspaceCollaboration, type WorkspaceCollaboration, type SupervisorResponse, type WeeklyFeedback, type ScopeChange } from "@/components/sme/workspace/workspace-data";
-import { smeResponsibilities } from "@/components/sme/setup/setup-data";
+import { smeResponsibilities, initiationChecklist, supervisor, supervisionTime, communication, dataAccess } from "@/components/sme/setup/setup-data";
 import { mockFullPortfolioVisibility, type FullPortfolioVisibility } from "@/components/student/portfolio/portfolio-data";
 import { mockPortfolioVisibility, type PortfolioVisibility } from "@/components/student/portfolio/experience-data";
 import { mockTasks, type WorkspaceTask, type TaskStatus } from "@/components/student/workspace/workspace-data";
 import { mockProjectCompletion, mockSubmission, finalConfirmations, submissionReady, type ProjectCompletion, type ProjectSubmission } from "@/components/student/workspace/completion/completion-data";
-import { mockPreStartStatus, preStartChecklist, projectSetupComplete, type PreStartStatus, type PreStartKey } from "@/components/student/applications/pre-start/pre-start-data";
+import { mockPreStartStatus, preStartChecklist, type PreStartStatus, type PreStartKey } from "@/components/student/applications/pre-start/pre-start-data";
 import { mockApplication, type ApplicationStatus } from "@/components/student/applications/application-data";
 export const learningActivityIds = ["communication", "updates", "planning"] as const;
 export type DemoProgress = { studentRegistered: boolean; outcomes: OutcomeState; assessmentDispute: AssessmentDispute; cancellation: ProjectCancellation; rejectedDemoProject: RejectedDemoProject; matchingAvailability: MatchingAvailability; assessment: AssessmentDevelopment; monitoring: ProjectMonitoring; capabilityReview: CapabilityReview; finalSMEReview: FinalSMEReview; workspace: WorkspaceCollaboration; setupStarted: boolean; smeResponsibilityConfirmations: string[]; fullPortfolioVisibility: FullPortfolioVisibility; portfolioAdded: boolean; portfolioVisibility: PortfolioVisibility; workspaceTasks: WorkspaceTask[]; projectCompletion: ProjectCompletion; submission: ProjectSubmission; preStart: PreStartStatus; applicationStatus: ApplicationStatus; interestSubmitted: boolean; completedActivities: string[]; startedActivities: string[]; profileComplete: boolean; assessmentComplete: boolean; readinessComplete: boolean; projectReady: boolean; projectAccessUnlocked: boolean; activeProject: boolean; verifiedExperience: boolean };
@@ -23,7 +23,7 @@ export type ProgressAction =
   { type: "readProjectMessages"; reader: "student" | "sme" } |
   { type: "sendSupportMessage"; text: string; attachment?: DemoAttachment } |
   { type: "setMeetingAttendance"; index: number; status: AttendanceStatus } |
-  { type: "demoUnlockProjects" | "demoUnlockWorkspace" } |
+  { type: "demoUnlockProjects" } |
   { type: "replaceDemoProgress"; progress: DemoProgress } |
   { type: "registerStudent" | "completeOnboarding" } |
   { type: "loadCompletedPilotDemo" | "record30DayFollowUp" } |
@@ -79,7 +79,7 @@ export type ProgressAction =
   { type: "resolveBlocker" } |
   { type: "recordProjectIssue"; issueType: string; description: string; urgency: string } |
   { type: "requestScopeChange"; request: ScopeChange } |
-  { type: "setSMEResponsibilities"; values: string[] } | { type: "confirmSMEReadiness" | "smeAcceptCandidate" } | { type: "setFullPortfolioVisibility"; key: keyof FullPortfolioVisibility; value: boolean } | { type: "reviewExperience" | "addToPortfolio" } | { type: "setPortfolioVisibility"; key: keyof PortfolioVisibility; value: boolean } | { type: "setWorkspaceTask"; id: string; status: TaskStatus } | { type: "updateSubmission"; patch: Partial<ProjectSubmission> } | { type: "submitFinalProject" | "approveFinalProject" | "requestProjectChanges" | "resubmitFinalProject" } | { type: "setPreStart"; key: PreStartKey; value: boolean } | { type: "unlockWorkspace" } | { type: "startActivity" | "completeActivity"; id: string } | { type: "completeReadiness" | "unlockProjects" | "completeAssessment" | "submitInterest" | "acceptApplication" | "declineApplication" };
+  { type: "setSMEResponsibilities"; values: string[] } | { type: "smeAcceptCandidate" } | { type: "setFullPortfolioVisibility"; key: keyof FullPortfolioVisibility; value: boolean } | { type: "reviewExperience" | "addToPortfolio" } | { type: "setPortfolioVisibility"; key: keyof PortfolioVisibility; value: boolean } | { type: "setWorkspaceTask"; id: string; status: TaskStatus } | { type: "updateSubmission"; patch: Partial<ProjectSubmission> } | { type: "submitFinalProject" | "approveFinalProject" | "requestProjectChanges" | "resubmitFinalProject" } | { type: "setPreStart"; key: PreStartKey; value: boolean } | { type: "startProject" } | { type: "startActivity" | "completeActivity"; id: string } | { type: "completeReadiness" | "unlockProjects" | "completeAssessment" | "submitInterest" | "acceptApplication" | "declineApplication" };
 export function learningActivityStatus(progress: DemoProgress, id: string): "not_started" | "in_progress" | "completed" {
   return progress.completedActivities.includes(id) ? "completed" : progress.startedActivities.includes(id) ? "in_progress" : "not_started";
 }
@@ -87,7 +87,7 @@ export function completedLearningCount(progress: DemoProgress) { return learning
 export function learningProgress(progress: DemoProgress) { return Math.round(completedLearningCount(progress) / learningActivityIds.length * 100); }
 export function learningComplete(progress: DemoProgress) { return completedLearningCount(progress) === learningActivityIds.length; }
 export function readinessAccessible(progress: DemoProgress) { return progress.assessmentComplete && learningComplete(progress) && progress.assessment.reassessment.status === "completed"; }
-export function workspacePrerequisites(progress: DemoProgress) { return projectsAccessible(progress) && progress.interestSubmitted && progress.applicationStatus === "sme_accepted" && projectSetupComplete(progress.preStart); }
+export function workspacePrerequisites(progress: DemoProgress) { return Object.values(initiationChecklist(progress)).every(Boolean); }
 export function workspaceAccessible(progress: DemoProgress) { return progress.preStart.workspaceUnlocked === true; }
 function capabilityDefinitionsForPartial(review: CapabilityReview) { return Object.values(review.capabilities).filter(item => item.decision !== "not_evidenced").every(item => item.evidence.length > 0 && item.notes.trim().length > 0); }
 export function projectsAccessible(progress: DemoProgress) { return progress.projectReady === true; }
@@ -147,7 +147,7 @@ function reduceProgress(progress: DemoProgress, action: ProgressAction): DemoPro
     return { ...progress, activeProject: false, workspace: { ...progress.workspace, meetings: progress.workspace.meetings.map(meeting => meeting.status === "Upcoming Meeting" ? { ...meeting, status: "Cancelled" } : meeting) }, monitoring: { ...progress.monitoring, paused: false }, capabilityReview: review, cancellation: { ...progress.cancellation, status: "cancelled", reason: action.reason, explanation: action.explanation.trim(), requestedBy: action.requestedBy, partialDecision: action.partialDecision, log: [...progress.cancellation.log, "Reason recorded", "Student impact reviewed: readiness and assessment unaffected", "Project cancelled", "Workspace moved to read-only", "Partial experience review created"] } };
   }
   if (action.type === "recordClosureFeedback" && projectCancelled(progress) && action.feedback.trim()) return { ...progress, cancellation: { ...progress.cancellation, closureFeedback: action.feedback.trim(), performanceCause: action.performanceCause, feedbackRecorded: true, log: [...progress.cancellation.log, "SME closure feedback recorded"] } };
-  if (projectCancelled(progress) && ["setWorkspaceTask", "updateSubmission", "submitFinalProject", "resubmitFinalProject", "acceptFinalSMEProject", "approveFinalProject", "requestFinalSMEChanges", "requestProjectChanges", "sendWorkspaceMessage", "addWorkspaceFile", "submitStudentUpdate", "setTaskFeedback", "respondToStudentUpdate", "addWeeklyFeedback", "rescheduleMeeting", "resolveBlocker", "recordProjectIssue", "requestScopeChange", "unlockWorkspace", "setPreStart", "confirmSMEReadiness", "smeAcceptCandidate", "acceptApplication", "declineApplication", "submitInterest", "pauseMonitoredProject", "resumeMonitoredProject", "reviewMonitoringIssue", "escalateMonitoringIssue", "resolveMonitoringIssue", "reviewScopeChange"].includes(action.type)) return progress;
+  if (projectCancelled(progress) && ["setWorkspaceTask", "updateSubmission", "submitFinalProject", "resubmitFinalProject", "acceptFinalSMEProject", "approveFinalProject", "requestFinalSMEChanges", "requestProjectChanges", "sendWorkspaceMessage", "addWorkspaceFile", "submitStudentUpdate", "setTaskFeedback", "respondToStudentUpdate", "addWeeklyFeedback", "rescheduleMeeting", "resolveBlocker", "recordProjectIssue", "requestScopeChange", "startProject", "setPreStart", "smeAcceptCandidate", "acceptApplication", "declineApplication", "submitInterest", "pauseMonitoredProject", "resumeMonitoredProject", "reviewMonitoringIssue", "escalateMonitoringIssue", "resolveMonitoringIssue", "reviewScopeChange"].includes(action.type)) return progress;
   const availability = progress.matchingAvailability;
   if (action.type === "showNoMatchingProjects") return projectsAccessible(progress) && availability.supply !== "no_match" ? { ...progress, matchingAvailability: { ...availability, supply: "no_match", log: [...availability.log, { text: "Initial matching search: no suitable approved project", date: "Today" }] } } : progress;
   if (action.type === "setProjectWaitlist") return projectsAccessible(progress) && availability.waitlistStatus !== (action.active ? "active" : "inactive") ? { ...progress, matchingAvailability: { ...availability, supply: "no_match", waitlistStatus: action.active ? "active" : "inactive", preferencesActive: true, log: [...availability.log, { text: action.active ? "Waitlist joined; current preferences remain active" : "Waitlist paused; project readiness retained", date: "Today" }] } } : progress;
@@ -277,29 +277,24 @@ function reduceProgress(progress: DemoProgress, action: ProgressAction): DemoPro
     return { ...progress, setupStarted: true, applicationStatus: "sme_accepted", preStart: { ...mockPreStartStatus }, smeResponsibilityConfirmations: [], activeProject: false };
   }
   if (action.type === "setSMEResponsibilities") {
-    if (progress.applicationStatus !== "sme_accepted" || progress.preStart.smeConfirmed) return progress;
-    return { ...progress, smeResponsibilityConfirmations: action.values.filter(value => smeResponsibilities.includes(value)) };
-  }
-  if (action.type === "confirmSMEReadiness") {
-    if (!projectsAccessible(progress) || !progress.interestSubmitted || progress.applicationStatus !== "sme_accepted" || !smeResponsibilities.every(item => progress.smeResponsibilityConfirmations.includes(item))) return progress;
-    const preStart = { ...progress.preStart, smeConfirmed: true, supervisorConfirmed: true };
-    preStart.workspaceUnlocked = workspacePrerequisites({ ...progress, preStart });
-    return { ...progress, preStart, activeProject: preStart.workspaceUnlocked };
+    if (progress.applicationStatus !== "sme_accepted" || progress.preStart.workspaceUnlocked || projectCancelled(progress)) return progress;
+    const values = smeResponsibilities.filter(item => action.values.includes(item));
+    return { ...progress, smeResponsibilityConfirmations: values, preStart: { ...progress.preStart,
+      dataAccessReady: values.includes(dataAccess),
+      smeConfirmed: smeResponsibilities.every(item => values.includes(item)),
+      supervisorConfirmed: [supervisor, supervisionTime, communication].every(item => values.includes(item)),
+    } };
   }
   if (action.type === "setPreStart") {
-    if (progress.applicationStatus !== "sme_accepted" || !progress.interestSubmitted || !projectsAccessible(progress) || !preStartChecklist.some(item => item.key === action.key)) return progress;
+    if (progress.preStart.workspaceUnlocked || progress.applicationStatus !== "sme_accepted" || !progress.interestSubmitted || !projectsAccessible(progress) || !preStartChecklist.some(item => item.key === action.key)) return progress;
     const preStart = { ...progress.preStart, [action.key]: action.value };
-    preStart.workspaceUnlocked = workspacePrerequisites({ ...progress, preStart });
-    return { ...progress, preStart, activeProject: preStart.workspaceUnlocked };
+    return { ...progress, preStart };
   }
   if (action.type === "demoUnlockProjects") return progress.assessmentComplete && !projectCancelled(progress) ? { ...progress, projectReady: true, projectAccessUnlocked: true } : progress;
-  if (action.type === "demoUnlockWorkspace") {
-    if (!progress.assessmentComplete || !learningComplete(progress) || projectCancelled(progress)) return progress;
-    const preStart = { ...progress.preStart };
-    for (const key of Object.keys(preStart) as (keyof PreStartStatus)[]) preStart[key] = true;
-    return { ...progress, projectReady: true, projectAccessUnlocked: true, interestSubmitted: true, applicationStatus: "sme_accepted", setupStarted: true, smeResponsibilityConfirmations: [...smeResponsibilities], preStart, activeProject: !progress.projectCompletion.smeApproved };
+  if (action.type === "startProject") {
+    if (workspaceAccessible(progress) || progress.projectCompletion.smeApproved || progress.monitoring.paused || !workspacePrerequisites(progress)) return progress;
+    return { ...progress, activeProject: true, preStart: { ...progress.preStart, workspaceUnlocked: true } };
   }
-  if (action.type === "unlockWorkspace") return workspacePrerequisites(progress) ? { ...progress, activeProject: true, preStart: { ...progress.preStart, workspaceUnlocked: true } } : progress;
   if (action.type === "startActivity" || action.type === "completeActivity") {
     if (!learningActivityIds.some(id => id === action.id)) return progress;
     const key = action.type === "startActivity" ? "startedActivities" : "completedActivities";
@@ -316,7 +311,7 @@ function reduceProgress(progress: DemoProgress, action: ProgressAction): DemoPro
 export function progressReducer(progress: DemoProgress, action: ProgressAction): DemoProgress {
   const next = reduceProgress(progress, action);
   if (next === progress) return progress;
-  const activities: Partial<Record<ProgressAction["type"], string>> = { submitStudentUpdate: "Student submitted Week 2 update", setTaskFeedback: "SME provided task feedback", respondToStudentUpdate: "SME responded to student update", recordProjectIssue: "SME reported a project issue", requestScopeChange: "SME submitted a scope change request", resolveBlocker: "SME resolved the student blocker", submitFinalProject: "Student submitted final project", resubmitFinalProject: "Student resubmitted final project", acceptFinalSMEProject: "SME accepted the completed project", approveFinalProject: "SME accepted the completed project", sendWorkspaceMessage: "Project participant added a demo message" };
+  const activities: Partial<Record<ProgressAction["type"], string>> = { startProject: "SME started Sales Performance Analysis", submitStudentUpdate: "Student submitted Week 2 update", setTaskFeedback: "SME provided task feedback", respondToStudentUpdate: "SME responded to student update", recordProjectIssue: "SME reported a project issue", requestScopeChange: "SME submitted a scope change request", resolveBlocker: "SME resolved the student blocker", submitFinalProject: "Student submitted final project", resubmitFinalProject: "Student resubmitted final project", acceptFinalSMEProject: "SME accepted the completed project", approveFinalProject: "SME accepted the completed project", sendWorkspaceMessage: "Project participant added a demo message" };
   if (!activities[action.type]) return next;
   const monitoring = action.type === "submitStudentUpdate" ? { ...next.monitoring, issueReviews: { ...next.monitoring.issueReviews, blocker: { ...defaultIssueReview } } } : next.monitoring;
   return { ...next, monitoring: { ...monitoring, activity: [{ text: activities[action.type]!, date: "Today" }, ...monitoring.activity] } };
