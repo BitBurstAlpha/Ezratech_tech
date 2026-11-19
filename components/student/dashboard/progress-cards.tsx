@@ -7,6 +7,7 @@ import { newMatchAvailable } from "@/components/student/projects/availability/av
 import { Icon } from "@/components/landing/icon";
 export function NextJourneyAction() {
   const { learningComplete, readinessUnlocked, projectsUnlocked, progress } = useDemoProgress();
+  if (progress.activeProject && progress.preStart.workspaceUnlocked) return <DashboardCard title={progress.monitoring.paused ? "Project Paused" : "Project Active"}><p className="mb-4 text-sm">Sales Performance Analysis · My Workspace: Unlocked</p><DashboardLink primary href="/student/workspace/northstar-sales-analysis">Open Workspace</DashboardLink></DashboardCard>;
   const noMatch = projectsUnlocked && progress.matchingAvailability.supply === "no_match";
   const href = noMatch ? "/student/projects/no-match" : projectsUnlocked ? "/student/projects" : learningComplete ? readinessUnlocked ? "/student/readiness" : "/student/reassessment" : "/student/learning-plan";
   const title = noMatch ? newMatchAvailable(progress.matchingAvailability, projectsUnlocked) ? "Review your new project opportunity" : "Project Ready · No Suitable Match Yet" : projectsUnlocked ? "Explore suitable SME projects" : learningComplete ? readinessUnlocked ? "Complete your readiness check" : "Complete your skills reassessment" : "Complete your personalised learning plan";

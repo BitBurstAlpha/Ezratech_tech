@@ -25,7 +25,15 @@ assert(!alex.workspace.messages.some(message => message.text === 'Emma-only resp
 records = updateWorkspace(records, { type: 'setup', projectId: 'inventory-reporting-improvement', key: 'agreement', value: true });
 assert.equal(records['inventory-reporting-improvement'].status, 'prestart');
 records = updateWorkspace(records, { type: 'setup', projectId: 'inventory-reporting-improvement', key: 'data', value: true });
-assert.equal(records['inventory-reporting-improvement'].status, 'active');
+const inventoryId = 'inventory-reporting-improvement';
+for (const key of ['scope', 'supervision']) records = updateWorkspace(records, {type:'setup', projectId:inventoryId, key, value:true});
+assert.equal(records[inventoryId].status, 'prestart');
+const customerBeforeStart = records['customer-feedback-analysis'];
+records = updateWorkspace(records, { type:'startProject', projectId:inventoryId });
+assert.equal(records[inventoryId].status, 'active');
+assert.equal(records[inventoryId].currentWeek, 1);
+assert.equal(records['customer-feedback-analysis'], customerBeforeStart);
+assert.equal(updateWorkspace(records, {type:'startProject', projectId:inventoryId}), records);
 records = updateWorkspace(records, { type: 'status', projectId: 'customer-feedback-analysis', status: 'paused' });
 assert.equal(updateWorkspace(records, { type: 'task', projectId: 'customer-feedback-analysis', taskId: 'summary', status: 'Not Started' }), records);
 records = updateWorkspace(records, { type: 'message', projectId: 'customer-feedback-analysis', author: 'Sarah Collins', text: 'Paused clarification' });

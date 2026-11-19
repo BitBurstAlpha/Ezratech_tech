@@ -1,4 +1,5 @@
 "use client";
+import { projectInitiation } from "../setup/setup-data";
 import { useDemoStoredState } from "@/components/demo/use-demo-stored-state";
 import { createContext, useContext, type ReactNode } from "react";
 import { useDemoProgress } from "@/components/student/progress/demo-progress";
@@ -33,7 +34,7 @@ export function SMECandidateProvider({ children }: { children: ReactNode }) {
     setDecisions(current => ({ ...current, [id]: { ...current[id], candidateDecision: decision, smeDecision: decision, smeReviewStatus: decision === "accepted" ? "accepted" : "not_selected", declineReason: decision === "declined" ? reason : "", studentConfirmation: false, preStartComplete: false, workspaceUnlocked: false } }));
   }
   const alexDecision: CandidateDecision["smeDecision"] = progress.applicationStatus === "sme_accepted" ? "accepted" : progress.applicationStatus === "closed" && records["alex-morgan"].smeDecision === "declined" ? "declined" : null;
-  const decisions = { ...records, "alex-morgan": { ...records["alex-morgan"], studentInterest: progress.interestSubmitted, candidateDecision: alexDecision, smeDecision: alexDecision, smeReviewStatus: alexDecision === "accepted" ? "accepted" as const : alexDecision === "declined" ? "not_selected" as const : progress.applicationStatus === "closed" ? "withdrawn" as const : "reviewing" as const, studentConfirmation: progress.preStart.studentConfirmed, preStartComplete: progress.preStart.workspaceUnlocked, workspaceUnlocked: progress.preStart.workspaceUnlocked } };
+  const decisions = { ...records, "alex-morgan": { ...records["alex-morgan"], studentInterest: progress.interestSubmitted, candidateDecision: alexDecision, smeDecision: alexDecision, smeReviewStatus: alexDecision === "accepted" ? "accepted" as const : alexDecision === "declined" ? "not_selected" as const : progress.applicationStatus === "closed" ? "withdrawn" as const : "reviewing" as const, studentConfirmation: progress.preStart.studentConfirmed, preStartComplete: projectInitiation(progress).initiationStatus === "completed", workspaceUnlocked: progress.preStart.workspaceUnlocked } };
   if (!(recordsHydrated && adminReviewsHydrated && auditLogHydrated)) return null;
   return <Context.Provider value={{ resetCandidates, decisions, setNotes, decide, adminReviews, auditLog, reviewMatch, markMatchEvidenceReviewed }}>{children}</Context.Provider>;
 }
