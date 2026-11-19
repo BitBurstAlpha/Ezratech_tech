@@ -1,4 +1,5 @@
 "use client";
+import { ClosureLinks } from "@/components/projects/closure/closure-links";
 import { useState } from "react";
 import { capabilityLevels } from "@/components/admin/capability/capability-data";
 import { DashboardCard, DashboardLink } from "@/components/student/dashboard/dashboard-card";
@@ -15,7 +16,7 @@ export function StudentPortfolio() {
   const [previewOpen, setPreviewOpen] = useState(false);
   const experiences = verifiedExperiences(progress);
   const skills = verifiedCapabilities(progress);
-  return <div className="space-y-6">
+  return <div className="space-y-6"><ClosureLinks role="student" portfolio/>
     <DashboardCard title={student.name} action={<StatusBadge status={progress.profileComplete ? "Complete" : "In Progress"} />}><p className="mb-5 text-sm leading-7 text-muted">{experiences.length ? "Aspiring Data Analyst with practical experience in SQL, Power BI and business-focused data analysis." : "Aspiring Data Analyst building skills in SQL, Power BI and business-focused data analysis."}</p><RecordDetails items={[{ label: "Career Goal", value: student.careerGoal }, { label: "Location", value: student.shortLocation }, { label: "Working Preference", value: student.preferredWork }, { label: "Availability", value: "6–8 hours/week" }, { label: "Profile Status", value: progress.profileComplete ? "Complete" : "In Progress" }]} /></DashboardCard>
     <DashboardCard title="Career Goal"><p className="text-sm font-semibold">Primary Goal: Data Analyst</p><p className="mt-3 text-sm text-muted">Related Areas: Business Intelligence · Reporting · Data Analysis</p><p className="mt-4 text-sm leading-7 text-muted">Build practical experience in preparing data, explaining business findings and producing clear reports.</p></DashboardCard>
     {experiences.length === 0 ? <PortfolioEmpty /> : <>

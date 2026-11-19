@@ -1,3 +1,4 @@
+import { emptyClosure, updateClosure, salesProjectId, type ClosureAction, type ClosureRecord } from "@/components/projects/closure/post-project-data";
 import { projectAttachmentAllowed, attachmentOptions, mockSupportMessages, projectConversationId, supportConversationId, type DemoAttachment } from "@/components/student/messages/message-data";
 import { attendanceStatuses, type AttendanceStatus } from "@/components/student/workspace/attendance-data";
 import { createOutcomeState, mockSMEOutcomes, type OutcomeState, type FollowUp, followUpStatuses } from "@/components/admin/outcomes/outcomes-data";
@@ -17,9 +18,11 @@ import { mockProjectCompletion, mockSubmission, finalConfirmations, submissionRe
 import { mockPreStartStatus, preStartChecklist, type PreStartStatus, type PreStartKey } from "@/components/student/applications/pre-start/pre-start-data";
 import { mockApplication, type ApplicationStatus } from "@/components/student/applications/application-data";
 export const learningActivityIds = ["communication", "updates", "planning"] as const;
-export type DemoProgress = { studentRegistered: boolean; outcomes: OutcomeState; assessmentDispute: AssessmentDispute; cancellation: ProjectCancellation; rejectedDemoProject: RejectedDemoProject; matchingAvailability: MatchingAvailability; assessment: AssessmentDevelopment; monitoring: ProjectMonitoring; capabilityReview: CapabilityReview; finalSMEReview: FinalSMEReview; workspace: WorkspaceCollaboration; setupStarted: boolean; smeResponsibilityConfirmations: string[]; fullPortfolioVisibility: FullPortfolioVisibility; portfolioAdded: boolean; portfolioVisibility: PortfolioVisibility; workspaceTasks: WorkspaceTask[]; projectCompletion: ProjectCompletion; submission: ProjectSubmission; preStart: PreStartStatus; applicationStatus: ApplicationStatus; interestSubmitted: boolean; completedActivities: string[]; startedActivities: string[]; profileComplete: boolean; assessmentComplete: boolean; readinessComplete: boolean; projectReady: boolean; projectAccessUnlocked: boolean; activeProject: boolean; verifiedExperience: boolean };
+export type DemoProgress = { projectClosure?: ClosureRecord; studentRegistered: boolean; outcomes: OutcomeState; assessmentDispute: AssessmentDispute; cancellation: ProjectCancellation; rejectedDemoProject: RejectedDemoProject; matchingAvailability: MatchingAvailability; assessment: AssessmentDevelopment; monitoring: ProjectMonitoring; capabilityReview: CapabilityReview; finalSMEReview: FinalSMEReview; workspace: WorkspaceCollaboration; setupStarted: boolean; smeResponsibilityConfirmations: string[]; fullPortfolioVisibility: FullPortfolioVisibility; portfolioAdded: boolean; portfolioVisibility: PortfolioVisibility; workspaceTasks: WorkspaceTask[]; projectCompletion: ProjectCompletion; submission: ProjectSubmission; preStart: PreStartStatus; applicationStatus: ApplicationStatus; interestSubmitted: boolean; completedActivities: string[]; startedActivities: string[]; profileComplete: boolean; assessmentComplete: boolean; readinessComplete: boolean; projectReady: boolean; projectAccessUnlocked: boolean; activeProject: boolean; verifiedExperience: boolean };
 export const initialDemoProgress: DemoProgress = { studentRegistered: false, outcomes: createOutcomeState(), assessmentDispute: createAssessmentDispute(), cancellation: { ...mockProjectCancellation, log: [] }, rejectedDemoProject: { status: "under_review", redesignRequested: false, suggestion: "", archived: false }, matchingAvailability: createMatchingAvailability(), assessment: createAssessmentDevelopment(), monitoring: createProjectMonitoring(), capabilityReview: createCapabilityReview(), finalSMEReview: { ...mockFinalSMEReview, reviewedDeliverableIds: [], acceptanceCriteria: { ...mockFinalSMEReview.acceptanceCriteria }, feedback: { ...mockFinalSMEReview.feedback }, portfolioPermissions: { ...mockFinalSMEReview.portfolioPermissions } }, workspace: createWorkspaceCollaboration(), setupStarted: false, smeResponsibilityConfirmations: [], fullPortfolioVisibility: { ...mockFullPortfolioVisibility }, portfolioAdded: false, portfolioVisibility: { ...mockPortfolioVisibility }, workspaceTasks: mockTasks.map(task => ({ ...task })), projectCompletion: { ...mockProjectCompletion, tasksComplete: false, milestonesComplete: false }, submission: { ...mockSubmission }, preStart: { ...mockPreStartStatus }, applicationStatus: mockApplication.status, interestSubmitted: false, completedActivities: [], startedActivities: [], profileComplete: false, assessmentComplete: false, readinessComplete: false, projectReady: false, projectAccessUnlocked: false, activeProject: false, verifiedExperience: false };
 export type ProgressAction =
+  { type: "closure"; projectId: string; action: ClosureAction } |
+  { type: "declineCapabilityVerification" } |
   { type: "readProjectMessages"; reader: "student" | "sme" } |
   { type: "sendSupportMessage"; text: string; attachment?: DemoAttachment } |
   { type: "setMeetingAttendance"; index: number; status: AttendanceStatus } |
@@ -92,6 +95,26 @@ export function workspaceAccessible(progress: DemoProgress) { return progress.pr
 function capabilityDefinitionsForPartial(review: CapabilityReview) { return Object.values(review.capabilities).filter(item => item.decision !== "not_evidenced").every(item => item.evidence.length > 0 && item.notes.trim().length > 0); }
 export function projectsAccessible(progress: DemoProgress) { return progress.projectReady === true; }
 function reduceProgress(progress: DemoProgress, action: ProgressAction): DemoProgress {
+  if (action.type === "closure") {
+    if (action.projectId !== salesProjectId) return progress;
+    const accepted = progress.projectCompletion.smeApproved;
+    const record = progress.projectClosure ?? emptyClosure(accepted);
+    if (projectCancelled(progress) && !record.exceptionApproved) return progress;
+    const reviewed = progress.submission.deliverables.length > 0 && progress.submission.deliverables.every(item => progress.finalSMEReview.reviewedDeliverableIds.includes(item.id));
+    const next = updateClosure(record, action.action, accepted, reviewed, progress.projectCompletion.finalSubmitted);
+    if (next === record) return progress;
+    const result = { ...progress, projectClosure: next };
+    if (action.action.kind === "reviewException" && action.action.approve) {
+      return reduceProgress(result, { type: "cancelActiveProject", reason: "Deliverables not accepted", explanation: next.unmetCriteria, requestedBy: "EzraTech Admin", partialDecision: "Requires human review" });
+    }
+    if (action.action.kind === "reviewException" && !action.action.approve) {
+      result.projectCompletion = { ...progress.projectCompletion, smeReviewStatus: "changes_requested", changesRequested: true };
+      result.finalSMEReview = { ...progress.finalSMEReview, changeRequest: { categories: ["Unmet criteria"], text: record.unmetCriteria, requestedDate: "To be agreed" } };
+    }
+    if (action.action.kind === "acknowledge") result.projectCompletion = { ...progress.projectCompletion, capabilityReviewReady: accepted };
+    return result;
+  }
+  if (progress.projectClosure?.status === "admin_review_required" && ["acceptFinalSMEProject", "approveFinalProject", "resubmitFinalProject", "updateSubmission"].includes(action.type)) return progress;
   if (action.type === "replaceDemoProgress") return structuredClone(action.progress);
   if (action.type === "readProjectMessages") {
     if (!workspaceAccessible(progress) && progress.applicationStatus !== "sme_accepted") return progress;
@@ -117,6 +140,7 @@ function reduceProgress(progress: DemoProgress, action: ProgressAction): DemoPro
       projectCompletion: { ...progress.projectCompletion, tasksComplete: true, milestonesComplete: true, finalSubmitted: true, smeReviewStatus: "approved", smeApproved: true, changesRequested: false, capabilityReviewReady: true, verifiedExperienceReady: true },
       finalSMEReview: { ...mockFinalSMEReview, feedback: { ...mockFinalSMEReview.feedback, general: mockSMEOutcomes.comment }, reviewedDeliverableIds: mockSubmission.deliverables.map(item => item.id), portfolioPermissionsReviewed: true },
       capabilityReview: { ...createCapabilityReview(), status: "approved", verifiedExperienceReady: true },
+      projectClosure: { ...emptyClosure(true), status: "closure_completed", contributionReviewed: true, materialsReviewed: true, completionEvidenceAvailable: true, feedback: mockSMEOutcomes.comment, history: ["SME recorded completion evidence.", "SME completed closure.", "Student acknowledged closure."] },
       outcomes: { followUp30Day: true, followUp90Day: null, repeatInterest: true, repeatConfirmed: true, interviewInterest: true, repeatFollowUpRecorded: true } };
   }
   if (action.type === "record30DayFollowUp" && progress.projectCompletion.smeApproved && !projectCancelled(progress)) return { ...progress, outcomes: { ...progress.outcomes, followUp30Day: true } };
@@ -198,20 +222,24 @@ function reduceProgress(progress: DemoProgress, action: ProgressAction): DemoPro
     return progress;
   }
   if (progress.monitoring.paused && ["setWorkspaceTask", "updateSubmission", "submitFinalProject", "resubmitFinalProject", "acceptFinalSMEProject", "approveFinalProject", "requestFinalSMEChanges", "requestProjectChanges", "addWorkspaceFile", "submitStudentUpdate", "setTaskFeedback", "respondToStudentUpdate", "addWeeklyFeedback", "rescheduleMeeting", "resolveBlocker", "recordProjectIssue", "requestScopeChange"].includes(action.type)) return progress;
-  if (["setCapabilityDecision", "setCapabilityNotes", "setCapabilityReviewerNotes", "requestCapabilityClarification", "returnCapabilityEvidence", "approveCapabilityExperience"].includes(action.type)) {
+  if (["declineCapabilityVerification", "setCapabilityDecision", "setCapabilityNotes", "setCapabilityReviewerNotes", "requestCapabilityClarification", "returnCapabilityEvidence", "approveCapabilityExperience"].includes(action.type)) {
     if ((!projectCancelled(progress) && (!progress.projectCompletion.smeApproved || !progress.projectCompletion.capabilityReviewReady)) || progress.capabilityReview.status === "approved") return progress;
+    if (progress.projectClosure && progress.projectClosure.status !== "closure_completed") return progress;
+    if (!projectCancelled(progress) && !progress.verifiedExperience && progress.projectClosure?.status !== "closure_completed") return progress;
+    if (progress.capabilityReview.status === "not_approved") return progress;
     const review = progress.capabilityReview;
+    if (action.type === "declineCapabilityVerification" && review.reviewerNotes.trim()) return { ...progress, verifiedExperience: false, capabilityReview: { ...review, status: "not_approved", verifiedExperienceReady: false }, projectCompletion: { ...progress.projectCompletion, verifiedExperienceReady: false } };
     if (action.type === "setCapabilityDecision" && action.key !== "python") return { ...progress, capabilityReview: { ...review, capabilities: { ...review.capabilities, [action.key]: { ...review.capabilities[action.key], decision: action.decision } } } };
     if (action.type === "setCapabilityNotes") return { ...progress, capabilityReview: { ...review, capabilities: { ...review.capabilities, [action.key]: { ...review.capabilities[action.key], notes: action.notes } } } };
     if (action.type === "setCapabilityReviewerNotes") return { ...progress, capabilityReview: { ...review, reviewerNotes: action.notes } };
     if (action.type === "requestCapabilityClarification" && action.text.trim()) return { ...progress, verifiedExperience: false, capabilityReview: { ...review, status: "clarification_requested", clarification: { category: action.category, text: action.text.trim() }, verifiedExperienceReady: false }, projectCompletion: { ...progress.projectCompletion, verifiedExperienceReady: false } };
     if (action.type === "returnCapabilityEvidence") return { ...progress, capabilityReview: { ...review, status: "under_review" } };
     if (action.type === "approveCapabilityExperience" && projectCancelled(progress) && review.status !== "clarification_requested" && review.reviewerNotes.trim() && confirmedCapabilities(review).length && capabilityDefinitionsForPartial(review)) return { ...progress, cancellation: { ...progress.cancellation, status: "partial_review", partialApproved: true, log: [...progress.cancellation.log, "Partial experience reviewed and approved by Admin"] }, capabilityReview: { ...review, status: "approved", verifiedExperienceReady: false } };
-    if (action.type === "approveCapabilityExperience" && !projectCancelled(progress) && review.status !== "clarification_requested" && confirmedCapabilities(review).length) return { ...progress, verifiedExperience: true, capabilityReview: { ...review, status: "approved", verifiedExperienceReady: true }, projectCompletion: { ...progress.projectCompletion, verifiedExperienceReady: true } };
+    if (action.type === "approveCapabilityExperience" && !projectCancelled(progress) && review.status !== "clarification_requested" && review.reviewerNotes.trim() && confirmedCapabilities(review).length && confirmedCapabilities(review).every(skill => skill.evidence.trim())) return { ...progress, verifiedExperience: true, capabilityReview: { ...review, status: "approved", verifiedExperienceReady: true }, projectCompletion: { ...progress.projectCompletion, verifiedExperienceReady: true } };
     return progress;
   }
   if (["markFinalDeliverableReviewed", "setFinalCriterion", "setFinalFeedback", "setFinalPortfolioPermission", "confirmFinalPortfolioPermissions", "acceptFinalSMEProject", "requestFinalSMEChanges"].includes(action.type)) {
-    if (!progress.preStart.workspaceUnlocked || !progress.projectCompletion.finalSubmitted || progress.projectCompletion.smeApproved || progress.projectCompletion.changesRequested) return progress;
+    if (!progress.preStart.workspaceUnlocked || !progress.projectCompletion.finalSubmitted || (progress.projectCompletion.smeApproved && action.type !== "markFinalDeliverableReviewed") || progress.projectCompletion.changesRequested) return progress;
     const review = progress.finalSMEReview;
     if (action.type === "markFinalDeliverableReviewed" && progress.submission.deliverables.some(item => item.id === action.id && item.file) && !review.reviewedDeliverableIds.includes(action.id)) return { ...progress, finalSMEReview: { ...review, reviewedDeliverableIds: [...review.reviewedDeliverableIds, action.id] } };
     if (action.type === "setFinalCriterion") return { ...progress, finalSMEReview: { ...review, acceptanceCriteria: { ...review.acceptanceCriteria, [action.key]: action.value } } };
@@ -219,7 +247,7 @@ function reduceProgress(progress: DemoProgress, action: ProgressAction): DemoPro
     if (action.type === "setFinalPortfolioPermission") return { ...progress, finalSMEReview: { ...review, portfolioPermissionsReviewed: false, portfolioPermissions: { ...review.portfolioPermissions, [action.key]: action.value } } };
     if (action.type === "confirmFinalPortfolioPermissions") return { ...progress, finalSMEReview: { ...review, portfolioPermissionsReviewed: true } };
     if (action.type === "requestFinalSMEChanges" && action.categories.length && action.text.trim()) return { ...progress, finalSMEReview: { ...review, changeRequest: { categories: [...action.categories], text: action.text.trim(), requestedDate: action.requestedDate } }, projectCompletion: { ...progress.projectCompletion, smeReviewStatus: "changes_requested", changesRequested: true, smeApproved: false, capabilityReviewReady: false, verifiedExperienceReady: false } };
-    if (action.type === "acceptFinalSMEProject" && finalReviewReady(review, progress.submission)) return { ...progress, activeProject: false, projectCompletion: { ...progress.projectCompletion, smeReviewStatus: "approved", changesRequested: false, smeApproved: true, capabilityReviewReady: true, verifiedExperienceReady: false } };
+    if (action.type === "acceptFinalSMEProject" && finalReviewReady(review, progress.submission)) return { ...progress, activeProject: false, projectCompletion: { ...progress.projectCompletion, smeReviewStatus: "approved", changesRequested: false, smeApproved: true, capabilityReviewReady: false, verifiedExperienceReady: false } };
     return progress;
   }
   if (["sendWorkspaceMessage", "addWorkspaceFile", "submitStudentUpdate", "setTaskFeedback", "respondToStudentUpdate", "addWeeklyFeedback", "rescheduleMeeting", "resolveBlocker", "recordProjectIssue", "requestScopeChange"].includes(action.type)) {
@@ -270,7 +298,7 @@ function reduceProgress(progress: DemoProgress, action: ProgressAction): DemoPro
     const completion = progress.projectCompletion;
     if (!progress.preStart.workspaceUnlocked || !completion.finalSubmitted || completion.smeReviewStatus !== "pending") return progress;
     const approved = action.type === "approveFinalProject";
-    return { ...progress, activeProject: approved ? false : progress.activeProject, projectCompletion: { ...completion, smeReviewStatus: approved ? "approved" : "changes_requested", changesRequested: !approved, smeApproved: approved, capabilityReviewReady: approved, verifiedExperienceReady: false } };
+    return { ...progress, activeProject: approved ? false : progress.activeProject, projectCompletion: { ...completion, smeReviewStatus: approved ? "approved" : "changes_requested", changesRequested: !approved, smeApproved: approved, capabilityReviewReady: false, verifiedExperienceReady: false } };
   }
   if (action.type === "smeAcceptCandidate" || action.type === "acceptApplication") {
     if (progress.applicationStatus === "sme_accepted" || !projectsAccessible(progress) || !progress.interestSubmitted || progress.applicationStatus !== "sme_review") return progress;
@@ -300,7 +328,7 @@ function reduceProgress(progress: DemoProgress, action: ProgressAction): DemoPro
     const key = action.type === "startActivity" ? "startedActivities" : "completedActivities";
     return progress[key].includes(action.id) ? progress : { ...progress, [key]: [...progress[key], action.id] };
   }
-  if (action.type === "submitInterest") return projectsAccessible(progress) ? { ...progress, monitoring: createProjectMonitoring(), capabilityReview: createCapabilityReview(), finalSMEReview: initialDemoProgress.finalSMEReview, workspace: createWorkspaceCollaboration(), interestSubmitted: true, outcomes: createOutcomeState(), verifiedExperience: false, portfolioAdded: false, portfolioVisibility: { ...mockPortfolioVisibility }, applicationStatus: "sme_review", workspaceTasks: mockTasks.map(task => ({ ...task })), projectCompletion: { ...mockProjectCompletion, tasksComplete: false, milestonesComplete: false }, submission: { ...mockSubmission }, preStart: { ...mockPreStartStatus }, smeResponsibilityConfirmations: [], activeProject: false } : progress;
+  if (action.type === "submitInterest") return projectsAccessible(progress) ? { ...progress, projectClosure: undefined, monitoring: createProjectMonitoring(), capabilityReview: createCapabilityReview(), finalSMEReview: initialDemoProgress.finalSMEReview, workspace: createWorkspaceCollaboration(), interestSubmitted: true, outcomes: createOutcomeState(), verifiedExperience: false, portfolioAdded: false, portfolioVisibility: { ...mockPortfolioVisibility }, applicationStatus: "sme_review", workspaceTasks: mockTasks.map(task => ({ ...task })), projectCompletion: { ...mockProjectCompletion, tasksComplete: false, milestonesComplete: false }, submission: { ...mockSubmission }, preStart: { ...mockPreStartStatus }, smeResponsibilityConfirmations: [], activeProject: false } : progress;
   if (action.type === "declineApplication") return { ...progress, applicationStatus: "closed", verifiedExperience: false, portfolioAdded: false, preStart: { ...mockPreStartStatus }, smeResponsibilityConfirmations: [], activeProject: false };
   if (action.type === "completeAssessment") return { ...progress, assessmentComplete: true };
   if (action.type === "completeReadiness") return readinessAccessible(progress) ? { ...progress, readinessComplete: true, projectReady: true, projectAccessUnlocked: true } : progress;
@@ -311,6 +339,9 @@ function reduceProgress(progress: DemoProgress, action: ProgressAction): DemoPro
 export function progressReducer(progress: DemoProgress, action: ProgressAction): DemoProgress {
   const next = reduceProgress(progress, action);
   if (next === progress) return progress;
+  if (next.projectCompletion.smeApproved && !progress.projectCompletion.smeApproved && (action.type === "acceptFinalSMEProject" || action.type === "approveFinalProject")) {
+    next.projectClosure = { ...emptyClosure(true), history: [...(progress.projectClosure?.history ?? []), "SME accepted the final deliverables."] };
+  }
   const activities: Partial<Record<ProgressAction["type"], string>> = { startProject: "SME started Sales Performance Analysis", submitStudentUpdate: "Student submitted Week 2 update", setTaskFeedback: "SME provided task feedback", respondToStudentUpdate: "SME responded to student update", recordProjectIssue: "SME reported a project issue", requestScopeChange: "SME submitted a scope change request", resolveBlocker: "SME resolved the student blocker", submitFinalProject: "Student submitted final project", resubmitFinalProject: "Student resubmitted final project", acceptFinalSMEProject: "SME accepted the completed project", approveFinalProject: "SME accepted the completed project", sendWorkspaceMessage: "Project participant added a demo message" };
   if (!activities[action.type]) return next;
   const monitoring = action.type === "submitStudentUpdate" ? { ...next.monitoring, issueReviews: { ...next.monitoring.issueReviews, blocker: { ...defaultIssueReview } } } : next.monitoring;

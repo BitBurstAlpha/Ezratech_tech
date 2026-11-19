@@ -1,4 +1,5 @@
 "use client";
+import { ClosureLinks } from "@/components/projects/closure/closure-links";
 import { useState } from "react";
 import { useDemoProgress } from "@/components/student/progress/demo-progress";
 import { useSMEProjectDraft } from "@/components/sme/projects/project-state";
@@ -25,7 +26,7 @@ export function OutcomesDashboard() {
     ["Repeat Demand", "At least 3 SMEs commit to another project", `${t.repeatConfirmed}`],
     ["Safety & Quality", "No unresolved serious incident", `${t.seriousOpen} unresolved serious incidents`],
   ];
-  return <OutcomesShell title="Pilot Outcomes & Follow-Up" subtitle="Track delivery, employer feedback, capability evidence and later participant outcomes across the EzraTech pilot.">
+  return <OutcomesShell title="Pilot Outcomes & Follow-Up" subtitle="Track delivery, employer feedback, capability evidence and later participant outcomes across the EzraTech pilot."><ClosureLinks role="admin"/>
     <SMECard title="Reporting Period" action={<button type="button" className={secondaryButton} onClick={() => setModal("export")}>Export Pilot Summary</button>}>
       <div className="grid gap-4 sm:grid-cols-3"><ProjectSelect label="Reporting Period" value={period} options={reportingPeriods} onChange={value => setPeriod(value as ReportingPeriod)} />{period === "Custom" && <><label className="space-y-2 text-sm">From<input type="date" className={inputClass} value={start} max={end || undefined} onChange={event => setStart(event.target.value)} /></label><label className="space-y-2 text-sm">To<input type="date" className={inputClass} value={end} min={start || undefined} onChange={event => setEnd(event.target.value)} /></label></>}</div>
       <p className="mt-4 text-xs leading-6 text-muted">Demo reporting date: 5 October 2026. Showing cohorts enrolled from {range.start || "—"} to {range.end || "—"}, with their subsequent outcomes. Filters apply to all counts and the outcome table.</p>

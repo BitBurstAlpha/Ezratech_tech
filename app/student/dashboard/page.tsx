@@ -1,3 +1,4 @@
+import { ClosureLinks } from "@/components/projects/closure/closure-links";
 import {
   NextJourneyAction,
   AssessmentStatusCard,
@@ -36,6 +37,7 @@ export default function StudentDashboardPage() {
           Student dashboard · Demo profile
         </span>
       </div>
+      <ClosureLinks role="student"/>
       <JourneyCard />
       <NextJourneyAction />
       <div className="grid gap-6 xl:grid-cols-2">

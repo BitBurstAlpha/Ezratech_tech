@@ -1,3 +1,4 @@
+import { emptyClosure, salesProjectId, type ClosureAction } from "@/components/projects/closure/post-project-data";
 import { initialDemoProgress, learningActivityIds, progressReducer, type DemoProgress } from "@/components/student/progress/progress-state";
 import { mockProjectReview, mockDataAccessUpdate, transitionProjectReview, type ProjectReview } from "@/components/sme/projects/review-data";
 import { mockSMEProjectDraft, type ProjectDraft } from "@/components/sme/projects/project-data";
@@ -22,6 +23,10 @@ export const demoScenarios = [
   { id: "assessment-review-request", title: "Assessment Review Request", description: "Student has challenged a capability decision and is waiting for human review.", route: "/admin/assessment-disputes/alex-morgan", stage: "dispute" },
   { id: "completed-capability-review", title: "Completed Project + Capability Review", description: "SME accepted the final project and EzraTech must review capability evidence.", route: "/admin/capability-reviews/northstar-sales-analysis/alex-morgan", stage: "completed" },
   { id: "verified-experience", title: "Verified Experience Complete", description: "Project and capability review are complete and the student has a verified experience record.", route: "/student/portfolio/northstar-sales-analysis", stage: "verified" },
+  { id: "closure-offer", title: "Project completed with employment offer", description: "Review a simulated Junior Data Analyst invitation and the student's response options.", route: "/student/projects/northstar-sales-analysis/closure", stage: "offer" },
+  { id: "closure-recommendation", title: "Completion evidence and SME recommendation", description: "Review the work record and recommendation awaiting portfolio approval. No employment offer was made.", route: "/admin/projects/northstar-sales-analysis/closure", stage: "recommendation" },
+  { id: "closure-no-opportunity", title: "No further employment opportunity", description: "Read constructive feedback on accepted work and acknowledge closure.", route: "/student/projects/northstar-sales-analysis/closure", stage: "no_opportunity" },
+  { id: "closure-unaccepted", title: "Deliverables not accepted", description: "Review unmet criteria and decide whether to return the submission for revisions or close without acceptance.", route: "/admin/projects/northstar-sales-analysis/closure", stage: "unaccepted" },
   { id: "pilot-outcomes", title: "Pilot Outcomes", description: "Loads the reporting dashboard with completed demo pilot results.", route: "/admin/outcomes", stage: "outcomes" },
 ] as const;
 export type DemoScenarioId = typeof demoScenarios[number]["id"];
@@ -72,6 +77,30 @@ export function loadDemoScenario(id: DemoScenarioId): DemoSnapshot {
     p = progressReducer(p, { type: "loadCompletedPilotDemo" });
     if (stage !== "outcomes") p.outcomes = structuredClone(initialDemoProgress.outcomes);
     if (stage === "completed") { p.verifiedExperience = false; p.portfolioAdded = false; p.capabilityReview.status = "pending"; p.capabilityReview.verifiedExperienceReady = false; p.projectCompletion.verifiedExperienceReady = false; }
+  }
+  if (["offer","recommendation","no_opportunity","unaccepted"].includes(stage)) {
+    p = loadDemoScenario("completed-capability-review").progress;
+    p.projectClosure = emptyClosure(true);
+    p.projectCompletion.capabilityReviewReady = false;
+    const record = (action: ClosureAction) => { p = progressReducer(p, {type:"closure", projectId:salesProjectId, action}); };
+    if (stage === "unaccepted") {
+      p.activeProject = true;
+      p.projectCompletion = {...p.projectCompletion, smeApproved:false, changesRequested:true, smeReviewStatus:"changes_requested"};
+      p.finalSMEReview.acceptanceCriteria.dashboard = "needs_changes";
+      p.finalSMEReview.feedback.general = "The dataset and sales analysis are useful. The dashboard still needs the agreed month-on-month comparison and a reconciliation of the variance.";
+      p.finalSMEReview.changeRequest = { categories:["Dashboard"], text:"Add the agreed month-on-month comparison and reconcile the variance.", requestedDate:"Demo review date" };
+      p.projectClosure = emptyClosure(false);
+      record({kind:"requestReview",reason:p.finalSMEReview.changeRequest.text});
+    } else {
+      record({kind:"feedback",text:p.finalSMEReview.feedback.general,contributionReviewed:true,materialsReviewed:true});
+      record({kind:"evidence"});
+      if (stage==="offer") record({kind:"offer",offer:{title:"Junior Data Analyst",employmentType:"Full-time",start:"2026-12-01",location:"London, hybrid",pay:"",summary:"Northstar Retail Ltd invites Alex Morgan to consider a Junior Data Analyst position following successful completion of the project."}});
+      if (stage==="recommendation") record({kind:"recommendation",recommendation:{strengths:"Sales trend analysis",communication:"Clear weekly updates",quality:"Reconciled measures against source data",reliability:"Delivered agreed milestones",skills:"SQL and Power BI",written:"Alex demonstrated good analytical skills, communicated progress clearly and responded constructively to feedback throughout the project."}});
+      if (stage==="no_opportunity") record({kind:"noOpportunity",feedback:{positives:"Alex completed the agreed deliverables and demonstrated useful analytical skills.",development:"Practise presenting analysis to business stakeholders.",reason:"Northstar currently has no suitable vacancy.",next:"Present the dashboard to a peer audience and seek feedback."}});
+      record({kind:"confirm"});
+      record({kind:"submit"});
+      if (stage==="recommendation") record({kind:"acknowledge"});
+    }
   }
   if (snapshot.smeOnboarded) snapshot.draft.status = "under-review";
   snapshot.progress = p;
