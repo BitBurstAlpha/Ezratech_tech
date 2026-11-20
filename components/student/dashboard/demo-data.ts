@@ -1,6 +1,7 @@
 import type { IconName } from "@/components/landing/icon";
 export const demoStudent = { name: "Alex Morgan", firstName: "Alex", initials: "AM", careerGoal: "Data Analyst", completion: 80, stage: "Skills Assessment" };
 export const navigation: { label: string; href: string; icon: IconName }[] = [
+  { label: "Packages", href: "/student/packages", icon: "project" },
   { label: "Dashboard", href: "/student/dashboard", icon: "dashboard" },
   { label: "My Profile", href: "/student/profile", icon: "user" },
   { label: "Skills Assessment", href: "/student/assessment", icon: "assessment" },

@@ -119,3 +119,48 @@ Browser storage being unavailable leaves the in-memory prototype usable.
 Run `npm run test:learning` for the learning-to-workspace sequence, persistence
 round-trips, duplicate completion handling and negative access checks.
 # Ezratech_tech
+
+## Package and Sandbox checkout demo
+
+Open `/student/packages`, `/sme/packages` or `/admin/packages`. Both paid packages start at **To Be Confirmed**. Public visitors can browse configured active packages and use free resources. A presenter opens a fictional payment identity from **Sandbox Payment Demo** on `/demo`. The existing public admin demo login has no package administration privilege.
+
+### Database and runtime configuration
+
+1. Create an isolated Supabase PostgreSQL project for fictional test data. Run `db/packages.sql` once in the SQL editor as the migration owner. It creates the private `ezra_demo` schema, four catalogue entries and a restricted login named `ezra_checkout`. Keep the schema outside Supabase's exposed Data API schemas.
+2. Set a generated password on the restricted role using an administrative PostgreSQL connection and the interactive psql command `\password ezra_checkout`. Use the project's transaction pooler connection details with username `ezra_checkout.PROJECT_REF` and the URL-encoded role password. Prepared statements are disabled in the driver for transaction pooling. Keep certificate verification enabled. If the pooler requires a private CA, supply its trusted PEM as `DEMO_DATABASE_CA`. [Supabase connection guide](https://supabase.com/docs/guides/database/connecting-to-postgres)
+3. In PayPal Developer, select **Sandbox**, create a REST app for a fictional business sandbox account, and obtain its **sandbox** client ID and secret. Use a separate personal sandbox account as the buyer. Set `PAYPAL_ENV=sandbox`. The application calls the fixed Sandbox API host with server-side credentials. [PayPal Orders API](https://developer.paypal.com/docs/api/orders/v2/)
+4. Copy `.env.example` to `.env.local`. Set `DATABASE_URL`, `PAYPAL_CLIENT_ID`, `PAYPAL_CLIENT_SECRET`, `PAYPAL_ENV`, `DEMO_APP_ORIGIN`, `DEMO_SESSION_SECRET` and `DEMO_PRESENTER_KEY`. Generate the latter two independently, for example with `openssl rand -hex 32`. Give only the presenter the presenter key. Use the exact site origin without a trailing slash and use HTTPS on Netlify.
+5. In Netlify project environment settings, add the same values with **Functions** scope for the intended deploy context. Set the origin to that context's actual URL and use an isolated database for any separate preview environment. Redeploy using the existing GitHub integration and Next.js runtime. Keep secret variables server-side. Check the deployed catalogue, presenter login and checkout return routes after deployment. [Netlify environment configuration](https://docs.netlify.com/build/environment-variables/overview/)
+
+### Presenter walkthrough
+
+1. Select **Package administrator** in the Demo Control Centre, enter the presenter key and open the current demo. In Prototype Pricing, set a positive GBP demonstration amount on a paid package and save. Descriptions, inclusions and availability are editable. Blank paid prices disable new checkout. Existing orders retain their quoted amount and deactivation removes a package from sale. Existing buyers keep their entitlement.
+2. Select Alex Morgan or Northstar Retail. **Open identity in current demo** preserves purchases for that identity within the signed session. **Fresh buyer without purchase** starts a new isolated namespace. To compare two buyers, switch using **Open identity in current demo**. The main Alex/Northstar/admin journey shares existing workflow state. Emma and Willow each have a separate workflow history.
+3. Open the appropriate package and choose **One-time PayPal Sandbox checkout**. Sign in with the test buyer and approve. On return, select **Verify and finish checkout**. The server reads the order from PayPal, captures approved funds and checks the order reference, currency, amount and completed capture. Refresh the receipt, then open the catalogue again. To cancel, leave via PayPal's cancel link and choose **Confirm cancellation** on return.
+4. In the Learning Plan, **Planning Tasks and Milestones** is the paid activity. The two communication exercises remain free. Checkout grants access only. Complete the activity, other required learning, reassessment and readiness using the existing journey. For the SME, candidate review, initiation, workspaces and closure require the project entitlement plus their existing workflow checks. Load the appropriate existing project scenario to demonstrate each stage.
+5. Select a purchased or cancelled fixture to rehearse without PayPal credentials. The database and receipt label it **presenter-fixture**. A fixture with an unconfigured price shows zero. For an actual Sandbox demonstration use the buyer checkout in step 3. Admin lists the latest 100 test orders with capture identifiers.
+6. For deployment acceptance, use two browser sessions, repeat the receipt action, check another buyer's catalogue, try cancellation, and compare records in Admin. A direct success URL without an owned completed order cannot display a successful receipt.
+
+### Records, reset and limitations
+
+| Private table | Purpose |
+| --- | --- |
+| packages | Audience, catalogue copy, inclusion list, editable price and availability |
+| orders | Identity, local and PayPal order references, quoted amount, provider and payment state |
+| purchases | One purchase per order and globally unique capture ID |
+| entitlements | One active grant per buyer and package, linked to its purchase |
+| course_progress | Paid activity starts and completions, recorded separately from payment |
+
+Package configuration applies across the demo. The two paid package IDs map to fixed prototype capabilities. The presenter controls the catalogue wording. Signed HTTP-only sessions expire after eight hours. Each consists of a random demonstration namespace and an allowlisted fictional identity. Clearing the cookie or starting a fresh namespace leaves previous transactions in the database. Demo Reset only clears prototype browser workflow data. The application database role has no delete grant. Retire the isolated database through its owner after the demonstration.
+
+The presenter key can select every demo identity and edit package configuration. The mechanism is unsuitable for real customers. Existing readiness, assessment and project workflows still use editable browser demo state and fictional example content. PayPal credentials, purchase authority and paid activity mutation checks stay on the server. Payment recovery runs when the buyer revisits checkout in their original session. Background reconciliation, refunds, customer account recovery and production billing are outside this prototype.
+
+### Verification
+
+Run `npm run build`, `npm run lint` and the existing `test:learning`, `test:workspaces` and `test:demo` scripts. The package suite exercises the actual POST handlers and restricted PostgreSQL transactions with mocked PayPal responses. Create a disposable local database named `ezra_package_test` on a fresh PostgreSQL cluster, apply the migration, then run:
+
+```sh
+PACKAGE_TEST_DATABASE_URL=postgresql://ezra_checkout@127.0.0.1:5432/ezra_package_test npm run test:packages
+```
+
+Supply the local test role password if required. The suite changes test catalogue prices and creates new fictional orders. It covers ownership, admin edits, simultaneous requests, recovered capture responses, declined payments, amount mismatch, cancellation and fixture isolation. Use the walkthrough above for external Sandbox and Netlify acceptance.

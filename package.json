@@ -15,10 +15,12 @@
     "test:portfolio": "node scripts/test-portfolio.cjs",
     "test:company-profile": "node scripts/test-company-profile.cjs",
     "test:workspaces": "node scripts/test-workspaces.cjs",
-    "test:sme-messages": "node scripts/test-sme-messages.cjs"
+    "test:sme-messages": "node scripts/test-sme-messages.cjs",
+    "test:packages": "node scripts/test-packages.cjs"
   },
   "dependencies": {
     "next": "16.3.8",
+    "postgres": "^3.4.7",
     "react": "19.2.8",
     "react-dom": "19.2.8"
   },

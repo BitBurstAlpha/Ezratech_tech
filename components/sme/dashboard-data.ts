@@ -34,6 +34,7 @@ export const mockSMEPipeline = [
   { label: "Approved / Matching", count: 0 }, { label: "Active", count: 1 }, { label: "Completed", count: 0 },
 ];
 export const smeNavigation: { label: string; href: string; icon: IconName }[] = [
+  { label: "Packages", href: "/sme/packages", icon: "project" },
   { label: "Dashboard", href: "/sme/dashboard", icon: "dashboard" },
   { label: "Company Profile", href: "/sme/profile", icon: "user" },
   { label: "Projects", href: "/sme/projects", icon: "project" },
