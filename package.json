@@ -9,6 +9,7 @@
     "lint": "eslint",
     "test:outcomes": "node scripts/test-outcomes.cjs",
     "test:demo": "node scripts/test-demo.cjs",
+    "test:marketplace": "node scripts/test-marketplace.cjs",
     "test:learning": "node scripts/test-learning.cjs",
     "test:attendance": "node scripts/test-attendance.cjs",
     "test:messages": "node scripts/test-messages.cjs",

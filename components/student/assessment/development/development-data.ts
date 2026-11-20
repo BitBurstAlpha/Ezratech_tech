@@ -33,7 +33,8 @@ export const developmentActivities: LearningActivity[] = [
 ];
 export const developmentLearningPlan = { ...mockLearningPlan, estimatedTime: "1 hr 45 mins", areas: [{ title: "Project Delivery", reason: developmentAreas[0].why, activities: [developmentActivities[0]] }, { title: "Professional Communication", reason: developmentAreas[1].why, activities: [developmentActivities[1], developmentActivities[2]] }] };
 export function developmentConfirmed(progress: DemoProgress) { return progress.assessment.reassessment.status === "completed" && assessmentCapabilities.every(item => progress.assessment.levels[item.key] !== "not_evidenced") && progress.assessment.humanReviewStatus !== "evidence_requested" && !progress.assessment.review.evidenceRequired.trim(); }
-export function reassessmentAvailable(progress: DemoProgress) { return ["communication", "updates", "planning"].every(id => progress.completedActivities.includes(id)) && progress.assessment.reassessment.status === "not_started"; }
+export const requiredCourseIds = developmentActivities.map(course => course.id);
+export function reassessmentAvailable(progress: DemoProgress) { return requiredCourseIds.every(id => progress.completedActivities.includes(id)) && progress.assessment.reassessment.status === "not_started"; }
 export function assessmentStage(progress: DemoProgress) {
   if (progress.readinessComplete && developmentConfirmed(progress)) return "ready";
   if (progress.assessment.humanReviewStatus === "pending" || progress.assessment.humanReviewStatus === "evidence_requested") return "human_review";

@@ -45,6 +45,6 @@ export function PresenterControls() {
       <label>Presenter key <input required name="key" type="password" autoComplete="off" className="rounded border p-2" /></label>
       <label>Identity <select className="rounded border p-2" name="actor" value={actor} onChange={e=>setActor(e.target.value)}>
         {Object.entries({alex:"Alex Morgan",emma:"Emma Clarke",northstar:"Northstar Retail",willow:"Willow Studio",admin:"Package administrator"}).map(([id,name])=><option key={id} value={id}>{name}</option>)}</select></label>
-      <label>Scenario <select key={actor} name="mode" className="rounded border p-2"><option value="resume">Open identity in current demo</option>{actor !== "admin" && <><option value="empty">Fresh buyer without purchase · try Sandbox checkout</option><option value="purchased">Completed test purchase fixture</option><option value="cancelled">Cancelled payment fixture</option></>}</select></label>
+      <label>Scenario <select key={actor} name="mode" className="rounded border p-2"><option value="resume">Open identity in current demo</option>{actor !== "admin" && <><option value="empty">Fresh buyer without purchase · try Sandbox checkout</option>{["alex", "emma"].includes(actor) && <option value="learning-fixture">Learning Package access fixture · no checkout</option>}<option value="purchased">Completed test purchase fixture</option><option value="cancelled">Cancelled payment fixture</option></>}</select></label>
     </PackageForm></section>;
 }

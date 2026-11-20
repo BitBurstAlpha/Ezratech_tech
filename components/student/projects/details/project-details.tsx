@@ -4,10 +4,10 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Icon } from "@/components/landing/icon";
 import { DashboardCard, DashboardLink } from "@/components/student/dashboard/dashboard-card";
 import { InterestDialog } from "./interest-dialog";
-import { mockProjectDetails as project } from "./project-details-data";
+import type { ProjectDetailsData } from "./project-details-data";
 function Tags({ items }: { items: string[] }) { return <ul className="flex flex-wrap gap-2">{items.map(item => <li key={item} className="rounded-md border border-border bg-section px-3 py-2 text-xs text-muted">{item}</li>)}</ul>; }
 import { useDemoProgress } from "@/components/student/progress/demo-progress";
-export function ProjectDetails() {
+export function ProjectDetails({ project }: { project: ProjectDetailsData }) {
   const { dispatch, progress } = useDemoProgress();
   const [saved, setSaved] = useState(false);
   const [reviewed, setReviewed] = useState(false);
@@ -17,7 +17,7 @@ export function ProjectDetails() {
   const result = useRef<HTMLDivElement>(null);
   const commitment = useRef<HTMLDivElement>(null);
   const interestButton = useRef<HTMLButtonElement>(null);
-  const submittedInterest = useCallback(() => { dispatch({ type: "submitInterest" }); setSubmitted(true); setModal(false); }, [dispatch]);
+  const submittedInterest = useCallback(async () => { const saved = await dispatch({ type: "submitInterest" }); setSubmitted(saved); setModal(false); }, [dispatch]);
   useEffect(() => { if (submitted) result.current?.focus(); }, [submitted]);
   function expressInterest() { if (!reviewed) { setError("Please confirm that you have reviewed the expected project commitment."); commitment.current?.scrollIntoView({ block: "center", behavior: "instant" }); commitment.current?.querySelector<HTMLInputElement>("input")?.focus(); return; } setError(""); setModal(true); }
   function close() { setModal(false); interestButton.current?.focus(); }
@@ -36,6 +36,6 @@ export function ProjectDetails() {
     <DashboardCard title="Project Information"><dl className="grid gap-5 sm:grid-cols-2">{project.information.map(item => <div key={item.label}><dt className="text-xs font-medium text-muted">{item.label}</dt><dd className="mt-2 text-sm leading-6">{item.value}</dd></div>)}</dl><p className="mt-5 text-xs text-muted">Final conditions would be confirmed before a live project begins.</p></DashboardCard>
     <div ref={commitment}><DashboardCard title="Before expressing interest"><dl className="mb-6 grid gap-4 sm:grid-cols-2">{project.commitment.map(item => <div key={item.label}><dt className="text-xs text-muted">{item.label}</dt><dd className="mt-1 text-sm font-medium">{item.value}</dd></div>)}</dl><label className="flex items-start gap-3 text-sm leading-6"><input type="checkbox" checked={reviewed} onChange={event => { setReviewed(event.target.checked); setError(""); }} className="mt-1 h-4 w-4 shrink-0 accent-primary" />I have reviewed the expected project commitment.</label>{error && <p role="alert" className="mt-4 text-sm">{error}</p>}<button type="button" onClick={expressInterest} className="mt-6 rounded-lg bg-primary px-5 py-3 text-sm font-semibold text-white hover:bg-primary-hover">Express Interest</button></DashboardCard></div>
     </>}
-    <p className="text-xs leading-6 text-muted">Prototype Demo · Project details and interest submissions are simulated. No information is shared.</p>{modal && <InterestDialog onClose={close} onSubmitted={submittedInterest} />}
+    <p className="text-xs leading-6 text-muted">Prototype Demo · Project details and interest submissions are simulated. No information is shared.</p>{modal && <InterestDialog project={project} onClose={close} onSubmitted={submittedInterest} />}
   </div>;
 }

@@ -1,6 +1,8 @@
+import { hasLearningPackage, isLearningFixture } from "@/lib/learning/package-access";
+import { readLearning, updateLearning } from "@/lib/learning/store";
 import { NextResponse } from "next/server";
 import { actors, issue, presenterAllowed, scenarioSpace, session, type Actor } from "@/lib/packages/session";
-import { database, owns } from "@/lib/packages/store";
+import { database } from "@/lib/packages/store";
 import { CheckoutNotice, fixture, settle, startCheckout } from "@/lib/packages/checkout";
 
 const error = (message: string, status: number) => NextResponse.json({ message }, { status });
@@ -16,11 +18,13 @@ export async function POST(request: Request, context: RouteContext<"/api/package
       if (!presenterAllowed(field("key"))) return error("Enter the private presenter key.", 403);
       const actor = field("actor") as Actor;
       const mode = field("mode");
-      if (!Object.hasOwn(actors,actor) || !["resume","empty","purchased","cancelled"].includes(mode) || (actor === "admin" && mode !== "resume")) return error("Choose a valid scenario.", 400);
-      const space = await scenarioSpace(mode !== "resume");
+      if (!Object.hasOwn(actors,actor) || !["resume","empty","purchased","cancelled","learning-fixture"].includes(mode) || (actor === "admin" && mode !== "resume")) return error("Choose a valid scenario.", 400);
+      if (mode === "learning-fixture" && actors[actor].role !== "student") return error("Choose a student for the learning fixture.", 400);
+      const namespace = await scenarioSpace(mode !== "resume");
+      const space = mode === "learning-fixture" ? "learning-fixture-" + actor + "-" + namespace : namespace;
       const user = space + "/" + actor;
       const role = actors[actor].role;
-      let url = "/" + role + "/packages";
+      let url = mode === "learning-fixture" ? "/student/learning-plan" : "/" + role + "/packages";
       if (mode === "purchased" || mode === "cancelled") {
         const order = await fixture(user,role,mode === "purchased");
         url = "/checkout/" + (mode === "purchased" ? "success" : "cancel") + "?order=" + order;
@@ -49,15 +53,22 @@ export async function POST(request: Request, context: RouteContext<"/api/package
       return NextResponse.json({ message: "Package saved." });
     }
     if (action === "activity") {
-      if (buyer.role !== "student" || id !== "planning" || !await owns(buyer.user,"learning")) return error("An active Learning Package is required.",403);
+      if (buyer.role !== "student" || id !== "planning" || !await hasLearningPackage(buyer.user)) return error("An active Learning Package is required.",403);
       const status = field("status");
       if (!["started","completed"].includes(status)) return error("Unknown activity state.",400);
-      const sql = database();
-      if (status === "completed") {
-        const rows = await sql`update ezra_demo.course_progress set status='completed' where user_id=${buyer.user} and activity_id=${id} returning activity_id`;
-        if (!rows.length) return error("Start the activity first.",409);
-      } else await sql`insert into ezra_demo.course_progress values(${buyer.user},${id},'started') on conflict do nothing`;
-      return NextResponse.json({ status });
+      if (isLearningFixture(buyer.user)) {
+        if (status === "completed" && !readLearning(buyer.user).startedActivities.includes(id)) return error("Start the activity first.", 409);
+      } else {
+        const sql = database();
+        if (status === "completed") {
+          const rows = await sql`update ezra_demo.course_progress set status='completed' where user_id=${buyer.user} and activity_id=${id} returning activity_id`;
+          if (!rows.length) return error("Start the activity first.",409);
+        } else {
+          await sql`insert into ezra_demo.course_progress values(${buyer.user},${id},'started') on conflict do nothing`;
+        }
+      }
+      const record = updateLearning(buyer.user, { type: status === "started" ? "startActivity" : "completeActivity", id });
+      return NextResponse.json({ status, record });
     }
     return error("Unknown package action.",404);
   } catch (cause) {

@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useRef, useState, type FormEvent } from "react";
+import { useDemoStoredState } from "@/components/demo/use-demo-stored-state";
 import { DashboardCard } from "@/components/student/dashboard/dashboard-card";
 import { FormField } from "@/components/forms/form-field";
 import { Choice, SelectField } from "@/components/student/onboarding/controls";
@@ -10,26 +11,27 @@ const primary = "rounded-lg bg-primary px-5 py-3 text-sm font-semibold text-whit
 import { useDemoProgress } from "@/components/student/progress/demo-progress";
 export function ReadinessForm() {
   const { dispatch } = useDemoProgress();
-  const [availability, setAvailability] = useState({ hours: "", schedule: "", duration: "" });
-  const [savedAvailability, setSavedAvailability] = useState(false);
-  const [types, setTypes] = useState<string[]>([]);
-  const [goals, setGoals] = useState<string[]>([]);
-  const [working, setWorking] = useState({ style: "", city: preferences.city, country: preferences.country, uk: "", permission: "" });
-  const [commitments, setCommitments] = useState<string[]>([]);
+  const [availability, setAvailability] = useDemoStoredState("readiness:availability", { hours: "", schedule: "", duration: "" });
+  const [savedAvailability, setSavedAvailability] = useDemoStoredState("readiness:savedAvailability", false);
+  const [types, setTypes] = useDemoStoredState<string[]>("readiness:types", []);
+  const [goals, setGoals] = useDemoStoredState<string[]>("readiness:goals", []);
+  const [working, setWorking] = useDemoStoredState("readiness:working", { style: "", city: preferences.city, country: preferences.country, uk: "", permission: "" });
+  const [commitments, setCommitments] = useDemoStoredState<string[]>("readiness:commitments", []);
   const [error, setError] = useState("");
   const [stage, setStage] = useState<"form" | "checking" | "result">("form");
   const content = useRef<HTMLDivElement>(null);
-  useEffect(() => { if (stage !== "checking") return; const timer = setTimeout(() => { dispatch({ type: "completeReadiness" }); setStage("result"); }, 1500); return () => clearTimeout(timer); }, [stage, dispatch]);
   useEffect(() => { if (stage !== "form") content.current?.focus(); }, [stage]);
   function toggle(value: string, selected: string[], setter: (next: string[]) => void) { setter(selected.includes(value) ? selected.filter(item => item !== value) : [...selected, value]); setError(""); }
   function updateAvailability(key: keyof typeof availability, value: string) { setAvailability(current => ({ ...current, [key]: value })); setSavedAvailability(false); setError(""); }
   function saveAvailability() { if (Object.values(availability).some(value => !value)) { setError("Choose your weekly hours, schedule and duration before saving availability."); return; } setSavedAvailability(true); setError(""); }
-  function submit(event: FormEvent<HTMLFormElement>) {
+  async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!types.length || !goals.length) { setError("Choose at least one project type and one goal for your next project."); return; }
     if (!working.uk || !working.permission) { setError("Please answer both eligibility questions. You can choose Not sure for permission."); return; }
     dispatch({ type: "saveMatchingPreferences", preferences: { availability: availability.hours, duration: availability.duration, workingStyle: working.style, projectAreas: types } });
     setError(""); setSavedAvailability(true); setStage("checking");
+    const saved = await dispatch({ type: "completeReadiness" }, { availability, working, types, goals, commitments });
+    setStage(saved ? "result" : "form");
   }
   return <div ref={content} tabIndex={-1} className="mx-auto max-w-5xl focus:outline-none" aria-label={stage === "result" ? "Project Ready result" : stage === "checking" ? "Checking project readiness" : "Project readiness form"}>
     {stage === "form" && <form onSubmit={submit} className="space-y-6"><div className="flex flex-wrap items-center justify-between gap-3"><p className="text-sm text-muted">{mockReadinessStatus.student} · Career goal: <span className="font-semibold text-ink">{mockReadinessStatus.careerGoal}</span></p><span className="inline-flex items-center gap-2 rounded-full bg-blue-light px-3 py-1.5 text-xs font-medium text-primary"><span className="h-1.5 w-1.5 rounded-full bg-accent" />Final preparation step</span></div>
@@ -42,6 +44,6 @@ export function ReadinessForm() {
     {error && <p role="alert" className="rounded-lg border border-accent/30 bg-white p-4 text-sm">{error}</p>}<button type="submit" className={`${primary} w-full sm:w-auto`}>Check My Readiness</button></form>}
     {stage === "checking" && <section role="status" aria-live="polite" aria-busy="true" className="rounded-xl border border-border bg-white p-16 text-center"><span aria-hidden="true" className="mx-auto mb-5 block h-9 w-9 animate-spin rounded-full border-[3px] border-blue-light border-t-primary motion-reduce:animate-none" /><h2 className="text-xl font-semibold">Checking your project readiness...</h2><p className="mt-3 text-xs text-muted">Simulated preparation check for this prototype.</p></section>}
     {stage === "result" && <ReadinessResult />}
-    <p className="mt-6 text-xs leading-6 text-muted">Prototype Demo · Information is kept in front-end state only. Readiness and eligibility outcomes are simulated.</p>
+    <p className="mt-6 text-xs leading-6 text-muted">Prototype Demo · Readiness and eligibility outcomes are simulated.</p>
   </div>;
 }

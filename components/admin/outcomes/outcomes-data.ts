@@ -1,11 +1,11 @@
 import type { DemoProgress } from "@/components/student/progress/progress-state";
 import { projectCancelled } from "@/components/projects/closure/closure-data";
 import { projectIssues } from "../monitoring/monitoring-data";
-import { mockProjectDetails } from "@/components/student/projects/details/project-details-data";
+import { mockApplication } from "@/components/student/applications/application-data";
 import { demoStudent } from "@/components/student/dashboard/demo-data";
 
 export const outcomeRoutes = { dashboard: "/admin/outcomes", student: "/admin/outcomes/students/alex-morgan", sme: "/admin/outcomes/smes/northstar-retail" };
-export const outcomeIdentity = { student: demoStudent.name, careerGoal: demoStudent.careerGoal, project: mockProjectDetails.title, company: mockProjectDetails.company, supervisor: mockProjectDetails.supervisor.name };
+export const outcomeIdentity = { student: demoStudent.name, careerGoal: demoStudent.careerGoal, project: mockApplication.project, company: mockApplication.company, supervisor: "Sarah Collins" };
 export const followUpStatuses = ["Searching for work", "Interviewing", "Received job offer", "Started employment", "Further study", "Other"] as const;
 export type FollowUp = { currentStatus: typeof followUpStatuses[number]; roleTitle: string; employer: string; related: "Yes" | "No" | "Partly"; evidenceUsed: "Yes" | "No"; notes: string };
 export const mockStudentFollowUps = { applications: 12, interviews: 1, offers: 0, employment: "Not yet", portfolioUsed: "Yes", currentStatus: "Actively applying for Data Analyst roles", comment: "The project gave me a practical example I could discuss during an interview." };

@@ -1,3 +1,4 @@
+import { hasLearningPackage } from "@/lib/learning/package-access";
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { session } from "@/lib/packages/session";
@@ -5,7 +6,7 @@ import { owns } from "@/lib/packages/store";
 import { SMEDashboardShell } from "@/components/sme/dashboard-shell";
 export async function packageAccess(role: "student" | "sme") {
   const buyer = await session();
-  const allowed = buyer?.role === role && await owns(buyer.user,role === "student" ? "learning" : "project").catch(()=>false);
+  const allowed = buyer?.role === role && await (role === "student" ? hasLearningPackage(buyer.user) : owns(buyer.user, "project")).catch(()=>false);
   return { allowed, name: buyer?.role === role ? buyer.name : undefined };
 }
 export async function SMEPackageGate({ children }: { children: ReactNode }) {

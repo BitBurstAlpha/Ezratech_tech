@@ -10,7 +10,7 @@ import { useDemoStoredState } from "./use-demo-stored-state";
 import { DemoMenu } from "./demo-menu";
 function useControlsValue() {
   const { reset: resetWorkspaces, workspaces } = useSMEWorkspaces();
-  const { progress, dispatch } = useDemoProgress();
+  const { progress, dispatch, restoreLearning } = useDemoProgress();
   const { profile, onboarding, resetSME } = useSME();
   const project = useSMEProjectDraft();
   const candidates = useSMECandidates();
@@ -25,8 +25,8 @@ function useControlsValue() {
     dispatch({ type: "replaceDemoProgress", progress: snapshot.progress });
     project.restoreProject(snapshot); resetWorkspaces(); resetSME(snapshot.smeOnboarded); candidates.resetCandidates(); setRevision(value => value + 1);
   }
-  function resetEzraTechDemo() { clearStorage(); applySnapshot(defaultDemoSnapshot()); setScenario("Default Demo"); setChecklist([]); }
-  function loadDemoScenario(id: DemoScenarioId) { applySnapshot(createScenario(id)); setScenario(demoScenarios.find(item => item.id === id)!.title); }
+  async function resetEzraTechDemo(key: string) { if (!await restoreLearning("reset", key)) return false; clearStorage(); applySnapshot(defaultDemoSnapshot()); setScenario("Default Demo"); setChecklist([]); return true; }
+  async function loadDemoScenario(id: DemoScenarioId, key: string) { if (!await restoreLearning(id, key)) return false; applySnapshot(createScenario(id)); setScenario(demoScenarios.find(item => item.id === id)!.title); return true; }
   function startJourney(role: "student" | "sme" | "admin" | "full") {
     // Journey navigation preserves progress. Only explicit reset or scenario loading replaces it.
     setScenario(role === "full" ? "Full EzraTech Journey" : `${role[0].toUpperCase()}${role.slice(1)} Journey`);

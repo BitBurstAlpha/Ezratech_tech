@@ -1,4 +1,10 @@
-import { mockProjects } from "../project-data";
+import "server-only";
+import type { MockProject } from "../project-data";
+export const mockProjects: MockProject[] = [
+  { id: "northstar-sales-analysis", company: "Northstar Retail Ltd", title: "Sales Performance Analysis", category: "Data Analysis", projectTypes: ["Data Analysis"], workingStyle: "Remote", duration: 6, weeklyCommitment: 6, description: "Analyse anonymised sales data, identify key trends and create a simple performance dashboard for the business.", requiredSkills: ["SQL", "Excel", "Power BI", "Data Analysis"], matchReasons: [{text: "SQL capability demonstrated"}, {text: "Data analysis capability demonstrated"}, {text: "Power BI listed in your profile"}, {text: "Weekly commitment matches your availability"}, {text: "Project duration matches your preference"}], status: "Recommended" },
+  { id: "brightpath-feedback-analysis", company: "BrightPath Services Ltd", title: "Customer Feedback Analysis", category: "Business Analysis / Research", projectTypes: ["Business Analysis", "Research"], workingStyle: "Hybrid", duration: 4, weeklyCommitment: 5, description: "Review customer feedback, identify recurring themes and prepare a concise findings report with recommendations.", requiredSkills: ["Excel", "Research", "Communication", "Analysis"], matchReasons: [{text: "Analytical thinking demonstrated"}, {text: "Communication learning completed"}, {text: "Weekly availability fits"}, {text: "Research experience would be developed through this project", development: true}], status: "New" },
+  { id: "oakwell-dashboard", company: "Oakwell Digital Ltd", title: "Marketing Dashboard Prototype", category: "Dashboard / Reporting", projectTypes: ["Dashboard / Reporting"], workingStyle: "Remote", duration: 5, weeklyCommitment: 7, description: "Create a prototype dashboard using sample marketing data to help the company monitor campaign performance.", requiredSkills: ["Excel", "Power BI", "Data Visualisation", "Communication"], matchReasons: [{text: "Power BI experience"}, {text: "Data handling demonstrated"}, {text: "Availability matches"}, {text: "Project supports your Data Analyst career goal"}], status: "Recommended" },
+];
 const northstar = mockProjects.find(project => project.id === "northstar-sales-analysis")!;
 export const mockProjectDetails = {
   ...northstar,
@@ -22,3 +28,5 @@ export const mockProjectDetails = {
   commitment: [ { label: "Duration", value: "6 weeks" }, { label: "Weekly commitment", value: "Approximately 6 hours" }, { label: "Working style", value: "Remote" }, { label: "Meetings", value: "Approximately once per week" } ],
   submission: { title: "Interest Submitted", description: "Your interest has been recorded for this demo.", nextStep: "Northstar Retail Ltd will review your relevant profile and demonstrated skills.", statuses: [ { label: "Student Interest", value: "Submitted" }, { label: "SME Review", value: "Pending" }, { label: "Mutual Acceptance", value: "Pending" } ] },
 };
+
+export type ProjectDetailsData = typeof mockProjectDetails;

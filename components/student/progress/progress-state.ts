@@ -5,7 +5,7 @@ import { createOutcomeState, mockSMEOutcomes, type OutcomeState, type FollowUp, 
 import { createAssessmentDispute, currentDisputeLevel, type AssessmentDispute } from "@/components/student/assessment/disputes/dispute-data";
 import { mockProjectCancellation, projectCancelled, type ProjectCancellation, type RejectedDemoProject } from "@/components/projects/closure/closure-data";
 import { createMatchingAvailability, type MatchingAvailability, type MatchingPreferences } from "@/components/student/projects/availability/availability-data";
-import { createAssessmentDevelopment, reassessmentAvailable, mockReassessment, assessmentCapabilities, type AssessmentDevelopment, type AssessmentCapabilityKey, type CapabilityReviewAction, type AssessmentDecision } from "@/components/student/assessment/development/development-data";
+import { createAssessmentDevelopment, developmentConfirmed, requiredCourseIds, reassessmentAvailable, mockReassessment, assessmentCapabilities, type AssessmentDevelopment, type AssessmentCapabilityKey, type CapabilityReviewAction, type AssessmentDecision } from "@/components/student/assessment/development/development-data";
 import { createProjectMonitoring, projectIssues, defaultIssueReview, type ProjectMonitoring, type ScopeReview } from "@/components/admin/monitoring/monitoring-data";
 import { createCapabilityReview, confirmedCapabilities, type CapabilityReview, type CapabilityKey, type CapabilityLevel } from "@/components/admin/capability/capability-data";
 import { mockFinalSMEReview, finalReviewReady, type FinalSMEReview, type FinalCriterionKey, type FinalFeedbackKey, type PortfolioPermissionKey } from "@/components/sme/workspace/final-review/final-review-data";
@@ -17,7 +17,7 @@ import { mockTasks, type WorkspaceTask, type TaskStatus } from "@/components/stu
 import { mockProjectCompletion, mockSubmission, finalConfirmations, submissionReady, type ProjectCompletion, type ProjectSubmission } from "@/components/student/workspace/completion/completion-data";
 import { mockPreStartStatus, preStartChecklist, type PreStartStatus, type PreStartKey } from "@/components/student/applications/pre-start/pre-start-data";
 import { mockApplication, type ApplicationStatus } from "@/components/student/applications/application-data";
-export const learningActivityIds = ["communication", "updates", "planning"] as const;
+export const learningActivityIds = requiredCourseIds;
 export type DemoProgress = { projectClosure?: ClosureRecord; studentRegistered: boolean; outcomes: OutcomeState; assessmentDispute: AssessmentDispute; cancellation: ProjectCancellation; rejectedDemoProject: RejectedDemoProject; matchingAvailability: MatchingAvailability; assessment: AssessmentDevelopment; monitoring: ProjectMonitoring; capabilityReview: CapabilityReview; finalSMEReview: FinalSMEReview; workspace: WorkspaceCollaboration; setupStarted: boolean; smeResponsibilityConfirmations: string[]; fullPortfolioVisibility: FullPortfolioVisibility; portfolioAdded: boolean; portfolioVisibility: PortfolioVisibility; workspaceTasks: WorkspaceTask[]; projectCompletion: ProjectCompletion; submission: ProjectSubmission; preStart: PreStartStatus; applicationStatus: ApplicationStatus; interestSubmitted: boolean; completedActivities: string[]; startedActivities: string[]; profileComplete: boolean; assessmentComplete: boolean; readinessComplete: boolean; projectReady: boolean; projectAccessUnlocked: boolean; activeProject: boolean; verifiedExperience: boolean };
 export const initialDemoProgress: DemoProgress = { studentRegistered: false, outcomes: createOutcomeState(), assessmentDispute: createAssessmentDispute(), cancellation: { ...mockProjectCancellation, log: [] }, rejectedDemoProject: { status: "under_review", redesignRequested: false, suggestion: "", archived: false }, matchingAvailability: createMatchingAvailability(), assessment: createAssessmentDevelopment(), monitoring: createProjectMonitoring(), capabilityReview: createCapabilityReview(), finalSMEReview: { ...mockFinalSMEReview, reviewedDeliverableIds: [], acceptanceCriteria: { ...mockFinalSMEReview.acceptanceCriteria }, feedback: { ...mockFinalSMEReview.feedback }, portfolioPermissions: { ...mockFinalSMEReview.portfolioPermissions } }, workspace: createWorkspaceCollaboration(), setupStarted: false, smeResponsibilityConfirmations: [], fullPortfolioVisibility: { ...mockFullPortfolioVisibility }, portfolioAdded: false, portfolioVisibility: { ...mockPortfolioVisibility }, workspaceTasks: mockTasks.map(task => ({ ...task })), projectCompletion: { ...mockProjectCompletion, tasksComplete: false, milestonesComplete: false }, submission: { ...mockSubmission }, preStart: { ...mockPreStartStatus }, applicationStatus: mockApplication.status, interestSubmitted: false, completedActivities: [], startedActivities: [], profileComplete: false, assessmentComplete: false, readinessComplete: false, projectReady: false, projectAccessUnlocked: false, activeProject: false, verifiedExperience: false };
 export type ProgressAction =
@@ -26,7 +26,6 @@ export type ProgressAction =
   { type: "readProjectMessages"; reader: "student" | "sme" } |
   { type: "sendSupportMessage"; text: string; attachment?: DemoAttachment } |
   { type: "setMeetingAttendance"; index: number; status: AttendanceStatus } |
-  { type: "demoUnlockProjects" } |
   { type: "replaceDemoProgress"; progress: DemoProgress } |
   { type: "registerStudent" | "completeOnboarding" } |
   { type: "loadCompletedPilotDemo" | "record30DayFollowUp" } |
@@ -89,11 +88,11 @@ export function learningActivityStatus(progress: DemoProgress, id: string): "not
 export function completedLearningCount(progress: DemoProgress) { return learningActivityIds.filter(id => learningActivityStatus(progress, id) === "completed").length; }
 export function learningProgress(progress: DemoProgress) { return Math.round(completedLearningCount(progress) / learningActivityIds.length * 100); }
 export function learningComplete(progress: DemoProgress) { return completedLearningCount(progress) === learningActivityIds.length; }
-export function readinessAccessible(progress: DemoProgress) { return progress.assessmentComplete && learningComplete(progress) && progress.assessment.reassessment.status === "completed"; }
+export function readinessAccessible(progress: DemoProgress) { return progress.assessmentComplete && learningComplete(progress) && developmentConfirmed(progress); }
 export function workspacePrerequisites(progress: DemoProgress) { return Object.values(initiationChecklist(progress)).every(Boolean); }
 export function workspaceAccessible(progress: DemoProgress) { return progress.preStart.workspaceUnlocked === true; }
 function capabilityDefinitionsForPartial(review: CapabilityReview) { return Object.values(review.capabilities).filter(item => item.decision !== "not_evidenced").every(item => item.evidence.length > 0 && item.notes.trim().length > 0); }
-export function projectsAccessible(progress: DemoProgress) { return progress.projectReady === true; }
+export function projectsAccessible(progress: DemoProgress) { return readinessAccessible(progress) && progress.readinessComplete; }
 function reduceProgress(progress: DemoProgress, action: ProgressAction): DemoProgress {
   if (action.type === "closure") {
     if (action.projectId !== salesProjectId) return progress;
@@ -318,7 +317,6 @@ function reduceProgress(progress: DemoProgress, action: ProgressAction): DemoPro
     const preStart = { ...progress.preStart, [action.key]: action.value };
     return { ...progress, preStart };
   }
-  if (action.type === "demoUnlockProjects") return progress.assessmentComplete && !projectCancelled(progress) ? { ...progress, projectReady: true, projectAccessUnlocked: true } : progress;
   if (action.type === "startProject") {
     if (workspaceAccessible(progress) || progress.projectCompletion.smeApproved || progress.monitoring.paused || !workspacePrerequisites(progress)) return progress;
     return { ...progress, activeProject: true, preStart: { ...progress.preStart, workspaceUnlocked: true } };
@@ -328,7 +326,7 @@ function reduceProgress(progress: DemoProgress, action: ProgressAction): DemoPro
     const key = action.type === "startActivity" ? "startedActivities" : "completedActivities";
     return progress[key].includes(action.id) ? progress : { ...progress, [key]: [...progress[key], action.id] };
   }
-  if (action.type === "submitInterest") return projectsAccessible(progress) ? { ...progress, projectClosure: undefined, monitoring: createProjectMonitoring(), capabilityReview: createCapabilityReview(), finalSMEReview: initialDemoProgress.finalSMEReview, workspace: createWorkspaceCollaboration(), interestSubmitted: true, outcomes: createOutcomeState(), verifiedExperience: false, portfolioAdded: false, portfolioVisibility: { ...mockPortfolioVisibility }, applicationStatus: "sme_review", workspaceTasks: mockTasks.map(task => ({ ...task })), projectCompletion: { ...mockProjectCompletion, tasksComplete: false, milestonesComplete: false }, submission: { ...mockSubmission }, preStart: { ...mockPreStartStatus }, smeResponsibilityConfirmations: [], activeProject: false } : progress;
+  if (action.type === "submitInterest") return projectsAccessible(progress) && (!progress.interestSubmitted || progress.applicationStatus === "closed") ? { ...progress, projectClosure: undefined, monitoring: createProjectMonitoring(), capabilityReview: createCapabilityReview(), finalSMEReview: initialDemoProgress.finalSMEReview, workspace: createWorkspaceCollaboration(), interestSubmitted: true, outcomes: createOutcomeState(), verifiedExperience: false, portfolioAdded: false, portfolioVisibility: { ...mockPortfolioVisibility }, applicationStatus: "sme_review", workspaceTasks: mockTasks.map(task => ({ ...task })), projectCompletion: { ...mockProjectCompletion, tasksComplete: false, milestonesComplete: false }, submission: { ...mockSubmission }, preStart: { ...mockPreStartStatus }, smeResponsibilityConfirmations: [], activeProject: false } : progress;
   if (action.type === "declineApplication") return { ...progress, applicationStatus: "closed", verifiedExperience: false, portfolioAdded: false, preStart: { ...mockPreStartStatus }, smeResponsibilityConfirmations: [], activeProject: false };
   if (action.type === "completeAssessment") return { ...progress, assessmentComplete: true };
   if (action.type === "completeReadiness") return readinessAccessible(progress) ? { ...progress, readinessComplete: true, projectReady: true, projectAccessUnlocked: true } : progress;

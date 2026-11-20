@@ -23,7 +23,8 @@ export function presenterAllowed(value: string) {
 export async function session() {
   const raw = (await cookies()).get(cookieName)?.value;
   if (!raw) return null;
-  const [space, actor, expiry, mac] = raw.split(".");
+  const [space, actor, expiry, mac, extra] = raw.split(".");
+  if (extra !== undefined || !/^\d+$/.test(expiry) || !space || !process.env.DEMO_SESSION_SECRET || process.env.DEMO_SESSION_SECRET.length < 32) return null;
   const signed = sign([space, actor, expiry].join("."));
   if (!Object.hasOwn(actors, actor) || Number(expiry) <= Date.now() || mac?.length !== 64 || !/^[a-f0-9]{64}$/.test(mac) || !timingSafeEqual(Buffer.from(mac), Buffer.from(signed))) return null;
   return { ...actors[actor as Actor], user: space + "/" + actor, space, actor: actor as Actor };
@@ -34,4 +35,8 @@ export async function scenarioSpace(fresh: boolean) {
 export async function issue(actor: Actor, space: string) {
   const value = [space, actor, Date.now() + 8 * 3600000].join(".");
   (await cookies()).set(cookieName, value + "." + sign(value), { httpOnly: true, sameSite: "lax", secure: process.env.DEMO_APP_ORIGIN?.startsWith("https://") ?? true, path: "/", maxAge: 28800 });
+}
+
+export async function endSession() {
+  (await cookies()).delete(cookieName);
 }
