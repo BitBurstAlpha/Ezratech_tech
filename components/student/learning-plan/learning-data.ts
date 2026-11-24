@@ -1,3 +1,4 @@
+export type AssignedCourse = LearningActivity & { packageId: string | null; accessible: boolean };
 export type LearningActivity = { id: string; title: string; description: string; minutes: number; duration: string; type: string; button: string; scenario: string; question: string };
 export const mockLearningPlan = {
   student: "Alex Morgan", careerGoal: "Data Analyst", estimatedTime: "2 hrs 30 mins",

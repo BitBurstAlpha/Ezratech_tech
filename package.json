@@ -17,7 +17,8 @@
     "test:company-profile": "node scripts/test-company-profile.cjs",
     "test:workspaces": "node scripts/test-workspaces.cjs",
     "test:sme-messages": "node scripts/test-sme-messages.cjs",
-    "test:packages": "node scripts/test-packages.cjs"
+    "test:packages": "node scripts/test-packages.cjs",
+    "test:database": "node scripts/test-database.mjs"
   },
   "dependencies": {
     "next": "16.3.8",

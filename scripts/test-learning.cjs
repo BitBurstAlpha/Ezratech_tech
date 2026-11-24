@@ -48,6 +48,11 @@ assert.equal(learningProgress({ ...state, completedActivities: ['planning', 'pla
 act({ type: 'completeReadiness' }); refresh();
 assert.equal(state.projectReady, true); assert.equal(projectsAccessible(state), true);
 assert.equal(workspaceAccessible(state), false);
+const expanded = { ...state, assignedCourses: ["planning","updates","communication","additional"].map(id => ({id})) };
+assert.equal(projectsAccessible(expanded), false, 'a new required assignment locks access');
+assert.equal(learningProgress(expanded),75);
+assert.equal(projectsAccessible({ ...state, assessment: { ...state.assessment, humanReviewStatus:"pending" } }),false);
+assert.equal(projectsAccessible({ ...state, assessmentComplete:false }),false);
 const beforeInterest = state;
 assert.equal(progressReducer(state, { type: 'smeAcceptCandidate' }), beforeInterest, 'SME acceptance cannot invent interest or completed learning');
 act({ type: 'submitInterest' }); refresh();

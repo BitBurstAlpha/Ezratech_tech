@@ -1,10 +1,11 @@
-import { hasLearningPackage, isLearningFixture } from "@/lib/learning/package-access";
-import { readLearning, updateLearning } from "@/lib/learning/store";
+import { manageLearning, AdministrationInputError } from "@/lib/learning/administration";
+import { updateLearning } from "@/lib/learning/store";
 import { NextResponse } from "next/server";
 import { actors, issue, presenterAllowed, scenarioSpace, session, type Actor } from "@/lib/packages/session";
 import { database } from "@/lib/packages/store";
 import { CheckoutNotice, fixture, settle, startCheckout } from "@/lib/packages/checkout";
 
+class CourseAccessDenied extends Error {}
 const error = (message: string, status: number) => NextResponse.json({ message }, { status });
 export async function POST(request: Request, context: RouteContext<"/api/packages/[action]">) {
   const origin = process.env.DEMO_APP_ORIGIN;
@@ -39,6 +40,10 @@ export async function POST(request: Request, context: RouteContext<"/api/package
       if (!/^[a-f0-9-]{36}$/i.test(id)) return error("Invalid order.",400);
       return NextResponse.json({ status: await settle(buyer.user,id,action === "cancel") });
     }
+    if (["course","create-course","assign","create-package"].includes(action)) {
+      if (buyer.role !== "admin") return error("Administrator required.",403);
+      return NextResponse.json({ message: await manageLearning(buyer,action,form) });
+    }
     if (action === "edit") {
       if (buyer.role !== "admin") return error("Presenter administration required.",403);
       const description = field("description").trim();
@@ -53,25 +58,21 @@ export async function POST(request: Request, context: RouteContext<"/api/package
       return NextResponse.json({ message: "Package saved." });
     }
     if (action === "activity") {
-      if (buyer.role !== "student" || id !== "planning" || !await hasLearningPackage(buyer.user)) return error("An active Learning Package is required.",403);
+      if (buyer.role !== "student" || id !== "planning") return error("An active Learning Package is required.",403);
       const status = field("status");
       if (!["started","completed"].includes(status)) return error("Unknown activity state.",400);
-      if (isLearningFixture(buyer.user)) {
-        if (status === "completed" && !readLearning(buyer.user).startedActivities.includes(id)) return error("Start the activity first.", 409);
-      } else {
-        const sql = database();
-        if (status === "completed") {
-          const rows = await sql`update ezra_demo.course_progress set status='completed' where user_id=${buyer.user} and activity_id=${id} returning activity_id`;
-          if (!rows.length) return error("Start the activity first.",409);
-        } else {
-          await sql`insert into ezra_demo.course_progress values(${buyer.user},${id},'started') on conflict do nothing`;
-        }
-      }
-      const record = updateLearning(buyer.user, { type: status === "started" ? "startActivity" : "completeActivity", id });
+      const record = await updateLearning(buyer.user, { type: status === "started" ? "startActivity" : "completeActivity", id },
+        progress => {
+          if (progress.assignedCourses && !progress.assignedCourses.find(course => course.id === id)?.accessible) throw new CourseAccessDenied();
+          if (!progress.assessmentComplete) throw new CheckoutNotice("Complete the skills assessment first.");
+          if (status === "completed" && !progress.startedActivities.includes(id)) throw new CheckoutNotice("Start the activity first.");
+        });
       return NextResponse.json({ status, record });
     }
     return error("Unknown package action.",404);
   } catch (cause) {
+    if (cause instanceof AdministrationInputError) return error(cause.message,400);
+    if (cause instanceof CourseAccessDenied) return error("Course access required.",403);
     if (cause instanceof CheckoutNotice) return error(cause.message,409);
     return error("The demo service is unavailable. Check the configuration or retry this request.",503);
   }

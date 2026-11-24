@@ -98,7 +98,7 @@ export default function StudentDashboardPage() {
               >
                 <p className="text-sm font-medium">{skill}</p>
                 <p className="mt-1 text-xs text-muted">
-                  Assessment completed for demo
+                  Self-reported skill
                 </p>
               </li>
             ))}

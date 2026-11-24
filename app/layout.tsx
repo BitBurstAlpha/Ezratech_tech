@@ -30,12 +30,13 @@ export const metadata: Metadata = {
 export default async function RootLayout({ children }: LayoutProps<"/">) {
   const buyer = await session();
   const user = buyer?.role === "student" ? buyer.user : buyer?.role === "admin" ? buyer.space + "/alex" : null;
+  const initialLearning = user ? learningRecord(await readLearning(user)) : null;
   return (
     <html
       lang="en"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col"><DemoProgressProvider key={buyer?.user} actorRole={buyer?.role} initialLearning={user ? learningRecord(readLearning(user)) : null}><SMEProvider><SMEWorkspaceManagerProvider><SMEProjectProvider><SMECandidateProvider><DemoControlsProvider>{children}</DemoControlsProvider></SMECandidateProvider></SMEProjectProvider></SMEWorkspaceManagerProvider></SMEProvider></DemoProgressProvider></body>
+      <body className="min-h-full flex flex-col"><DemoProgressProvider key={JSON.stringify([buyer?.user, initialLearning])} actorRole={buyer?.role} initialLearning={initialLearning}><SMEProvider><SMEWorkspaceManagerProvider><SMEProjectProvider><SMECandidateProvider><DemoControlsProvider>{children}</DemoControlsProvider></SMECandidateProvider></SMEProjectProvider></SMEWorkspaceManagerProvider></SMEProvider></DemoProgressProvider></body>
     </html>
   );
 }

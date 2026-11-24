@@ -1,12 +1,11 @@
 import "server-only";
-import postgres from "postgres";
+import { connectDatabase } from "./connection.mjs";
 
-let pool: ReturnType<typeof postgres> | undefined;
+let pool: ReturnType<typeof connectDatabase> | undefined;
 export function database() {
   const url = process.env.DATABASE_URL;
   if (!url) throw new Error("Demo database is not configured.");
-  const local = ["localhost", "127.0.0.1"].includes(new URL(url).hostname);
-  return pool ??= postgres(url, { prepare: false, max: 2, idle_timeout: 15, connect_timeout: 8, ssl: local ? false : { rejectUnauthorized: true, ca: process.env.DEMO_DATABASE_CA?.replace(/\\n/g, "\n") } });
+  return pool ??= connectDatabase(url, process.env.DEMO_DATABASE_CA);
 }
 export type Package = { id: string; name: string; audience: "student" | "sme"; description: string; inclusions: string[]; price: string | null; active: boolean };
 export async function catalogue() {

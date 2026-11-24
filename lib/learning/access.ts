@@ -7,7 +7,7 @@ import { readLearning } from "./store";
 export async function requireMarketplace() {
   const buyer = await session();
   if (buyer?.role !== "student") redirect("/student/learning-plan?marketplace=session");
-  const progress = readLearning(buyer.user);
+  const progress = await readLearning(buyer.user);
   if (!learningComplete(progress)) redirect("/student/learning-plan?marketplace=courses");
   if (!projectsAccessible(progress)) redirect("/student/readiness?marketplace=pending");
 }

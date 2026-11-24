@@ -2,7 +2,7 @@ import type { DemoProgress } from "@/components/student/progress/progress-state"
 
 export function learningRecord(progress: DemoProgress) {
   const { startedActivities, completedActivities, assessmentComplete, assessmentDispute, assessment, readinessComplete } = progress;
-  return { startedActivities, completedActivities, assessmentComplete, assessmentDispute, assessment, readinessComplete };
+  return { interestSubmitted: progress.interestSubmitted, assignedCourses: progress.assignedCourses, startedActivities, completedActivities, assessmentComplete, assessmentDispute, assessment, readinessComplete };
 }
 export type LearningRecord = ReturnType<typeof learningRecord>;
 

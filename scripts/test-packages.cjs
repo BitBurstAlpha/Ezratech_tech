@@ -107,6 +107,7 @@ async function main() {
   assert.equal((await sql`select * from ezra_demo.purchases where order_id=${id}`).length,1);
   assert.equal((await sql`select * from ezra_demo.course_progress where user_id=${alex}`).length,0);
   assert.equal(await owns((await session()).user,"learning"),true);
+  await require("../lib/learning/actions.ts").recordLearning({ type: "completeAssessment", answers: {data:1,analysis:0,communication:2,delivery:1}, evidenceProvided:true });
   for (const status of ["started","completed"]) assert.equal((await call("activity",{id:"planning",status})).status,status);
   assert.equal(await owns(await login("emma"),"learning"),false);
   for (const mode of ["cancel","declined","mismatch"]) {
@@ -129,6 +130,28 @@ async function main() {
   assert.equal(await owns(company,"project"),true);
   assert.equal(await owns(await login("willow"),"project"),false);
   assert.equal(await owns(await login("alex","cancelled"),"learning"),false);
+  await login("admin");
+  const courseId = "exercise-" + randomUUID();
+  const newPackage = "package-" + randomUUID();
+  assert.equal((await call("create-package",{id:newPackage,title:"Fictional practice package",description:"Demo",inclusions:"Exercise"})).status,200);
+  const course = {id:courseId,title:"Fictional assigned course",description:"Demo lesson",scenario:"Review fictional totals",question:"What changed?",minutes:"15",package:newPackage};
+  assert.equal((await call("create-course",course)).status,200);
+  assert.equal((await call("assign",{id:courseId,student:"alex"})).status,200);
+  const { readLearning } = require("../lib/learning/store.ts");
+  const { recordLearning } = require("../lib/learning/actions.ts");
+  const assignedStudent = await login("alex");
+  const plan = await readLearning(assignedStudent);
+  assert.equal(plan.assignedCourses.length,4);
+  assert.equal(plan.assignedCourses.find(c=>c.id===courseId).title,course.title);
+  await recordLearning({type:"completeAssessment",answers:{data:1,analysis:0,communication:2,delivery:1},evidenceProvided:true});
+  await assert.rejects(()=>recordLearning({type:"startActivity",id:courseId}));
+  await login("admin");
+  assert.equal((await call("course",{...course,package:""})).status,200);
+  await login("alex");
+  await recordLearning({type:"startActivity",id:courseId});
+  await recordLearning({type:"completeActivity",id:courseId});
+  assert.deepEqual((await readLearning(assignedStudent)).completedActivities,[courseId]);
+  assert.equal((await readLearning(await login("emma"))).completedActivities.includes(courseId),false);
   console.log("Package integration checks passed with PostgreSQL and mocked Sandbox responses.");
 }
 main().catch(error=>{console.error(error);process.exitCode=1;}).finally(()=>database().end());

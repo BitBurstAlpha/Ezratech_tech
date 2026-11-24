@@ -42,11 +42,13 @@ async function run() {
   await locked("session");
   await login("alex", "learning-fixture");
   const user = (await session()).user;
-  assert.deepEqual(readLearning(user).completedActivities, []);
+  assert.deepEqual((await readLearning(user)).completedActivities, []);
   await locked("courses");
   await assert.rejects(() => loadLearningFixture("student-project-ready", "wrong"));
   await assert.rejects(() => recordLearning({ type: "replaceDemoProgress", progress: { projectReady: true } }));
-  await recordLearning({ type: "completeAssessment" });
+  await assert.rejects(() => recordLearning({ type:"completeAssessment" }));
+  await assert.rejects(() => recordLearning({ type:"startActivity", id:"communication" }));
+  await recordLearning({ type: "completeAssessment", answers: {data:1,analysis:0,communication:2,delivery:1}, evidenceProvided:true });
   for (const id of ["communication", "updates"]) {
     await recordLearning({ type: "startActivity", id });
     await recordLearning({ type: "completeActivity", id });
@@ -69,10 +71,15 @@ async function run() {
   });
   await requireMarketplace();
   await recordLearning({ type: "submitInterest" });
-  assert.equal(readLearning(user).interestSubmitted, true);
+  assert.equal((await readLearning(user)).interestSubmitted, true);
   await login("emma", "resume");
   await locked("courses");
   await login("northstar", "resume");
+  for (const operation of ["assign","course","create-course","create-package","edit","activity"]) {
+    assert.equal((await post(operation, { id:"planning" })).status,403);
+  }
+  await assert.rejects(() => recordLearning({ type:"completeActivity", id:"communication" }));
+  await assert.rejects(() => loadLearningFixture("student-project-ready",process.env.DEMO_PRESENTER_KEY));
   await locked("session");
   await login("alex", "resume");
   await requireMarketplace();

@@ -1,5 +1,8 @@
--- Apply once as migration owner in an isolated demo database.
+-- Run ONCE as the migration owner in a fresh, isolated Supabase project.
+-- This transaction deliberately fails on existing objects. All seeds are fictional
+-- EzraTech demo catalogue entries. No credentials or payment requests are needed.
 begin;
+-- LOGIN is the only non-default role attribute. The owner sets its password later.
 create role ezra_checkout login;
 create schema ezra_demo;
 set local search_path = ezra_demo;
@@ -34,14 +37,57 @@ create table entitlements (
  purchase_id uuid unique not null references purchases, status text not null default 'active' check(status='active'),
  activated_at timestamptz not null default now(), unique(user_id,package_id)
 );
-create table course_progress (
- user_id text not null, activity_id text not null, status text not null check(status in ('started','completed')),
- primary key(user_id,activity_id)
+-- Courses are managed by EzraTech. A nullable package grants access to the lesson.
+create table courses (
+ id text primary key check (id ~ '^[a-z][a-z0-9-]{0,79}$'),
+ title text not null check (btrim(title) <> ''),
+ description text not null, scenario text not null, question text not null,
+ minutes integer not null check (minutes between 1 and 1440),
+ package_id text references packages(id)
 );
+insert into courses (id,title,description,scenario,question,minutes,package_id) values
+ ('planning','Planning Tasks and Milestones','Organise work and communicate changes to milestones.',
+  'Cleaning duplicate records could delay a fictional sales dashboard.','How would you update the plan and communicate the blocker?',45,'learning'),
+ ('communication','Communicating Project Risks','Explain risks and next steps to a stakeholder.',
+  'A milestone is due in two days and information is missing.','Write an early update outlining the impact and recovery plan.',30,null),
+ ('updates','Writing Professional Project Updates','Write clear updates on progress and risks.',
+  'Duplicate records may change the figures in a fictional sales report.','Write a concise progress update with next steps.',30,null);
+
+-- One learning plan per signed demo student. Assessment contains the existing
+-- reassessment answers, reviewer decisions and evidence. Eligibility is derived.
+create table learning_plans (
+ user_id text primary key,
+ assessment_complete boolean not null default false,
+ assessment jsonb not null check (jsonb_typeof(assessment) = 'object'),
+ assessment_dispute jsonb not null check (jsonb_typeof(assessment_dispute) = 'object'),
+ readiness_complete boolean not null default false,
+ interest_submitted boolean not null default false,
+ check (not readiness_complete or assessment_complete)
+);
+create table course_assignments (
+ user_id text not null references learning_plans,
+ course_id text not null references courses,
+ primary key (user_id,course_id)
+);
+create table course_progress (
+ user_id text not null, activity_id text not null,
+ status text not null check(status in ('started','completed')),
+ primary key(user_id,activity_id),
+ foreign key(user_id,activity_id) references course_assignments(user_id,course_id)
+);
+create index assignments_by_course on course_assignments(course_id);
+create index recent_orders on orders(created_at desc);
+
+-- Only the server connects using this role. The schema stays outside the Data API.
+revoke all on all tables in schema ezra_demo from public;
 grant usage on schema ezra_demo to ezra_checkout;
-grant select on all tables in schema ezra_demo to ezra_checkout;
-grant update(description,inclusions,price,active) on packages to ezra_checkout;
-grant insert on orders,purchases,entitlements,course_progress to ezra_checkout;
-grant update(status,provider_order_id) on orders to ezra_checkout;
-grant update(status) on course_progress to ezra_checkout;
+grant select on packages,orders,purchases,entitlements,courses,learning_plans,course_assignments,course_progress to ezra_checkout;
+grant insert(id,audience,name,description,inclusions,price,active), update(description,inclusions,price,active) on packages to ezra_checkout;
+grant insert(user_id,package_id,provider,amount,currency,status), update(status,provider_order_id) on orders to ezra_checkout;
+grant insert(order_id,user_id,package_id,provider_capture_id) on purchases to ezra_checkout;
+grant insert(user_id,package_id,purchase_id) on entitlements to ezra_checkout;
+grant insert(id,title,description,scenario,question,minutes,package_id), update(title,description,scenario,question,minutes,package_id) on courses to ezra_checkout;
+grant insert(user_id,assessment,assessment_dispute), update(assessment_complete,assessment,assessment_dispute,readiness_complete,interest_submitted) on learning_plans to ezra_checkout;
+grant insert(user_id,course_id) on course_assignments to ezra_checkout;
+grant insert(user_id,activity_id,status), update(status), delete on course_progress to ezra_checkout;
 commit;
