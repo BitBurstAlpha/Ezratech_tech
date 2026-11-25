@@ -1,0 +1,45 @@
+name: Plan or apply database migrations
+on:
+  workflow_dispatch:
+    inputs:
+      target:
+        description: Configured database environment
+        type: choice
+        options: [development, production]
+        required: true
+      operation:
+        description: Plan first, then dispatch apply for the same reviewed commit
+        type: choice
+        options: [plan, apply]
+        required: true
+      reviewed:
+        description: I reviewed pending SQL, destructive operations, permission changes and recovery
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+concurrency:
+  group: ezra-database-${{ inputs.target }}
+  cancel-in-progress: false
+
+jobs:
+  validate:
+    if: github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
+    uses: ./.github/workflows/migrations-check.yml
+  database:
+    needs: validate
+    if: inputs.operation == 'plan' || inputs.reviewed
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.target }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: supabase/setup-cli@v3
+        with:
+          version: 3.4.0
+      - name: Check target history and run selected operation
+        env:
+          MIGRATION_DB_URL: ${{ secrets.MIGRATION_DB_URL }}
+          MIGRATION_DATABASE_CA: ${{ secrets.MIGRATION_DATABASE_CA }}
+          OPERATION: ${{ inputs.operation }}
+        run: bash scripts/migrations/deploy.sh "$OPERATION"

@@ -126,17 +126,23 @@ Open `/student/packages`, `/sme/packages` or `/admin/packages`. Both paid packag
 
 ### Database and runtime configuration
 
-1. Create an isolated Supabase PostgreSQL project for fictional test data. Run `db/packages.sql` once in the SQL editor as the migration owner. It creates the private `ezra_demo` schema, four package entries, three fictional courses and a restricted login named `ezra_checkout`. Keep the schema outside Supabase's exposed Data API schemas.
+1. Use the database migration setup below to adopt an existing Supabase project or bootstrap an empty one. The baseline includes the private `ezra_demo` schema, four package entries, three fictional courses and the restricted `ezra_checkout` login. Keep the schema outside Supabase's exposed Data API schemas.
 2. Set a generated password on the restricted role using an administrative PostgreSQL connection and the interactive psql command `\password ezra_checkout`. Use the project's transaction pooler connection details with username `ezra_checkout.PROJECT_REF` and the URL-encoded role password. Prepared statements are disabled in the driver for transaction pooling. Keep certificate verification enabled. If the pooler requires a private CA, supply its trusted PEM as `DEMO_DATABASE_CA`. [Supabase connection guide](https://supabase.com/docs/guides/database/connecting-to-postgres)
 3. In PayPal Developer, select **Sandbox**, create a REST app for a fictional business sandbox account, and obtain its **sandbox** client ID and secret. Use a separate personal sandbox account as the buyer. Set `PAYPAL_ENV=sandbox`. The application calls the fixed Sandbox API host with server-side credentials. [PayPal Orders API](https://developer.paypal.com/docs/api/orders/v2/)
 4. Use `.env.example` as the server environment template. Set `DATABASE_URL`, `PAYPAL_CLIENT_ID`, `PAYPAL_CLIENT_SECRET`, `PAYPAL_ENV`, `DEMO_APP_ORIGIN`, `DEMO_SESSION_SECRET` and `DEMO_PRESENTER_KEY`. Generate the latter two independently, for example with `openssl rand -hex 32`. Give only the presenter the presenter key. Use the exact site origin without a trailing slash and use HTTPS on Netlify.
 5. In Netlify project environment settings, add the same values with **Functions** scope for the intended deploy context. Set the origin to that context's actual URL and use an isolated database for any separate preview environment. Redeploy using the existing GitHub integration and Next.js runtime. Keep secret variables server-side. Check the deployed catalogue, presenter login and checkout return routes after deployment. [Netlify environment configuration](https://docs.netlify.com/build/environment-variables/overview/)
 
+### Local student checkout
+
+Use `DEMO_APP_ORIGIN=http://localhost:3000`, `DEMO_LOCAL_STUDENT=true`, and a private `DEMO_SESSION_SECRET` of at least 32 characters in `.env.local`. Start `npm run dev -- --hostname 127.0.0.1` and open `http://localhost:3000/student/packages`. Select **Continue as Alex Morgan (local test)**, or continue with your existing signed student session. Each newly issued local session has its own purchase history. The shortcut is disabled in production and Netlify environments.
+
+Choose **Pay with Test Card** if offered, or **Pay with PayPal Sandbox**. Enter a PayPal-generated sandbox card on PayPal's page or sign in there with a Sandbox Personal buyer. On return choose **Verify and finish checkout**, then **Return to packages**. An active purchase opens the learning plan. To test cancellation, return via PayPal's cancel link and confirm cancellation in EzraTech.
+
 ### Presenter walkthrough
 
 1. Select **Package administrator** in the Demo Control Centre, enter the presenter key and open the current demo. In Prototype Pricing, set a positive GBP demonstration amount on a paid package and save. Descriptions, inclusions and availability are editable. Blank paid prices disable new checkout. Existing orders retain their quoted amount and deactivation removes a package from sale. Existing buyers keep their entitlement.
 2. Select Alex Morgan or Northstar Retail. **Open identity in current demo** preserves purchases for that identity within the signed session. **Fresh buyer without purchase** starts a new isolated namespace. To compare two buyers, switch using **Open identity in current demo**. The main Alex/Northstar/admin journey shares existing workflow state. Emma and Willow each have a separate workflow history.
-3. Open the appropriate package and choose **One-time PayPal Sandbox checkout**. Sign in with the test buyer and approve. On return, select **Verify and finish checkout**. The server reads the order from PayPal, captures approved funds and checks the order reference, currency, amount and completed capture. Refresh the receipt, then open the catalogue again. To cancel, leave via PayPal's cancel link and choose **Confirm cancellation** on return.
+3. Open the appropriate package and choose **Pay with PayPal Sandbox**. Sign in with the test buyer and approve. On return, select **Verify and finish checkout**. The server reads the order from PayPal, captures approved funds and checks the order reference, currency, amount and completed capture. Refresh the receipt, then open the catalogue again. To cancel, leave via PayPal's cancel link and choose **Confirm cancellation** on return.
 4. In the Learning Plan, **Planning Tasks and Milestones** is the paid activity. The two communication exercises remain free. Checkout grants access only. Complete the activity, other required learning, reassessment and readiness using the existing journey. For the SME, candidate review, initiation, workspaces and closure require the project entitlement plus their existing workflow checks. Load the appropriate existing project scenario to demonstrate each stage.
 5. Before connecting a database, choose **Learning Package access fixture · no checkout** as Alex. This presenter-only scenario grants the planning course in a fresh signed demo session. Complete the skills assessment, the three courses, reassessment and readiness to unlock the marketplace. To rehearse later stages, select a signed identity and use the presenter key in Demo Scenarios.
 6. Select a purchased or cancelled fixture to rehearse without PayPal credentials. The database and receipt label it **presenter-fixture**. A fixture with an unconfigured price shows zero. For an actual Sandbox demonstration use the buyer checkout in step 3. Admin lists the latest 100 test orders with capture identifiers.
@@ -168,3 +174,66 @@ PACKAGE_TEST_DATABASE_URL=postgresql://ezra_checkout@127.0.0.1:5432/ezra_package
 ```
 
 Supply the local test role password if required. The suite changes test catalogue prices and creates new fictional orders. It covers ownership, admin edits, simultaneous requests, recovered capture responses, declined payments, amount mismatch, cancellation and fixture isolation. Use the walkthrough above for external Sandbox and Netlify acceptance.
+
+## Database migrations
+
+The source for future schema changes is `supabase/migrations/`. The first version, `20261125202908_baseline.sql`, captures the hosted logical schema, indexes, constraints and grants for all eight tables. For an empty database it creates the restricted login and inserts the original four package and three course defaults. Existing projects retain their own prices, purchases, progress and credentials through one-time history adoption. Keep `db/packages.sql` as the historical bootstrap and isolated legacy-test fixture.
+
+### Install and test locally
+
+Install Docker and PostgreSQL client tools (`psql`, and `pg_dump` version 17 or newer for a PG17 project). CI pins Supabase CLI **3.4.0**. With Node 22 and npm, run `npx --yes supabase@3.4.0 --version`. Substitute `npx --yes supabase@3.4.0` for `supabase` in the commands below if the binary is absent from PATH. The repository already includes CLI configuration. [Supabase CLI reference](https://supabase.com/docs/reference/cli/introduction)
+
+1. Create a branch and run `supabase migration new create_projects`. Edit the newly timestamped SQL file. Qualify application objects with `ezra_demo.` and grant only the privileges required by the application.
+2. Run `python3 scripts/migrations/validate.py`. To replay from scratch, start a **new, disposable** PostgreSQL 17 container. The commands below target only its loopback port. The password is a local test value.
+
+   ```bash
+   docker run --name ezra-migration-test --rm -d -p 127.0.0.1:55432:5432 \
+     -e POSTGRES_PASSWORD=disposable postgres:17
+   # Wait until this reports "accepting connections".
+   docker exec ezra-migration-test pg_isready -U postgres
+   TEST_DB='postgresql://postgres:disposable@127.0.0.1:55432/postgres'
+   supabase db push --remote="$TEST_DB" --skip-vault --dry-run
+   supabase db push --remote="$TEST_DB" --skip-vault --yes
+   supabase migration list --remote="$TEST_DB"
+   supabase db push --remote="$TEST_DB" --skip-vault --dry-run
+   docker stop ezra-migration-test
+   ```
+
+3. Commit the new SQL and open a pull request. CI checks timestamps and rejects edits to existing migration files relative to the PR base. It replays the full chain on disposable PostgreSQL 17, verifies local and applied versions, and checks seed access under the application role. For changes to populated tables, also rehearse the upgrade on a restored development copy.
+4. Review SQL, locking, backfill size, old/new application compatibility, and recovery. For deletes, drops, truncation, type changes, or permission changes, explicitly record affected objects, data impact, backup, and reviewer approval in the PR. Use a new forward migration for corrections after merge.
+
+### Adopt the existing development project once
+
+Inspection on 25 November 2026 found PostgreSQL 17.12 and empty Supabase CLI history. The baseline was compared to a schema-only dump. Hosted column storage metadata (`pg_attver`) is instance-specific and excluded. The role password and application rows are excluded. A CLI dry-run lists filenames and cannot verify schema equivalence.
+
+1. Before adoption, identify the correct Supabase project and take the backup described below. Use its migration owner in a private terminal. Set `MIGRATION_DB_URL` from a secret manager, set `PGSSLROOTCERT` to the trusted CA file and `PGSSLMODE=verify-full`. Use a direct connection or the session pooler on port 5432. Keep credential-bearing commands out of traced shell sessions and logs.
+2. Run `supabase migration list --remote="$MIGRATION_DB_URL"`. Recheck the schema with `supabase db dump --remote="$MIGRATION_DB_URL" --schema ezra_demo --file /private/path/ezra-schema.sql` (Docker required), or use `pg_dump --schema-only --schema=ezra_demo --no-owner`. Compare the tables, constraints, indexes, and table/column grants with the baseline replay. Check role privileges, ownership, and seed IDs separately. Preserve legitimate edited catalogue values. Resolve unexpected drift or new history before adoption.
+3. **Proposed hosted write, requiring explicit approval.** For the verified, populated development project only, the owner would run the command below. It creates or updates Supabase's migration bookkeeping and records this single version as applied. It skips baseline SQL execution.
+
+   ```bash
+   supabase migration repair 20261125202908 --status applied --remote="$MIGRATION_DB_URL"
+   ```
+
+4. Verify that both columns of `supabase migration list --remote="$MIGRATION_DB_URL"` contain `20261125202908`. Run `supabase db push --remote="$MIGRATION_DB_URL" --skip-vault --dry-run`. Immediately after baseline-only adoption it should report up to date. The hosted workflow requires an adopted baseline and stops on divergent history.
+
+### Configure GitHub and activate deployments
+
+Create GitHub **Environments** named `development` and, when ready, `production`. Each targets a different Supabase project and has its own credentials. In **Settings → Environments**, restrict deployment branches to the repository's default branch. Protect that branch, require reviewed PRs, and require the migration validation check for migration changes. For production, configure required reviewers, prevent self-review and disable administrator bypass before adding secrets. Confirm your GitHub plan supports these protections for the repository's visibility. Leave production credentials unset until the protection is available and verified. [GitHub deployment environments](https://docs.github.com/en/actions/reference/workflows-and-actions/deployments-and-environments)
+
+| Environment secret | Value |
+| --- | --- |
+| `MIGRATION_DB_URL` | Project-specific PostgreSQL URI for the owner responsible for schema migrations. Use the direct endpoint or session pooler, a URL-encoded password, and `?sslmode=verify-full` as the sole query option. The owner needs DDL rights on the managed objects and rights to Supabase migration history. |
+| `MIGRATION_DATABASE_CA` | The project connection's trusted CA certificate or bundle in multiline PEM format. |
+
+The workflows connect to Postgres by URL. GitHub needs neither a Supabase Management API token nor Netlify, PayPal or application credentials. Keep the application's `DATABASE_URL`, `DEMO_DATABASE_CA`, and restricted runtime role in their existing settings.
+
+**New production project.** Create it when ready. Verify that `ezra_demo`, the custom role and migration history are absent before bootstrap. Review the backup plan and use an approved migration owner with permission to create the restricted role. From a checkout containing **only the reviewed baseline** in the migrations directory, inspect `supabase db push --remote="$MIGRATION_DB_URL" --skip-vault --dry-run`. With explicit production approval, apply that baseline once using the same command without `--dry-run`. Supabase records its execution. Set the new application role's password privately using `psql` and `\password ezra_checkout`. Verify history, seeds and grants before enabling the production workflow. For a populated production project use the adoption procedure instead.
+
+**Routine deployment.** After merging a reviewed migration, go to **Actions → Plan or apply database migrations → Run workflow**. Select the default branch, `development`, and `plan`. Review the listed versions against the SQL at the run's commit. Dispatch `apply` for that same commit after checking the review acknowledgement. If the branch advanced, run a fresh plan. The apply job repeats the history check and dry-run, then verifies that all local versions are recorded. Exercise the affected queries in development. Repeat for `production`, where GitHub holds the environment job for its required reviewer before releasing credentials. Both plan and apply are manual and serialized per environment. Pushes and Netlify builds do not deploy database changes.
+
+### Backup, verification and recovery checklist
+
+- Before applying, record the project, commit, applied versions, expected changes and recovery owner. Confirm a usable Supabase backup or point-in-time recovery window. For a logical backup, use a suitably privileged account and `pg_dump --format=custom --schema=ezra_demo --file=/private/path/ezra-before.dump "$MIGRATION_DB_URL"`. Keep it encrypted outside Git. Save migration history and role membership/grant information separately. Schema-only dumps omit data.
+- Restore into an isolated project to verify recovery. Check package and course seeds, record counts, constraints, grants and representative restricted-role reads. A schema-scoped logical dump does not cover cluster roles or unrelated project services. [Supabase backups](https://supabase.com/docs/guides/platform/backups)
+- After deployment, compare CLI history to Git, repeat the dry-run, and verify the affected tables and application reads. Keep the run and backup reference with the PR.
+- On failure, pause deployments. Inspect the first failed migration, actual schema, data and CLI history. Earlier versions in the same run may already be committed. Rehearse a forward fix in development and obtain review before retrying. If history and schema disagree, document the exact discrepancy and seek explicit approval before any history repair. For data loss, rehearse restoration from the verified backup or PITR in isolation and agree on the recovery point before touching the hosted project.
