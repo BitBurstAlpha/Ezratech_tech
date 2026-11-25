@@ -1,7 +1,7 @@
 import { manageLearning, AdministrationInputError } from "@/lib/learning/administration";
 import { updateLearning } from "@/lib/learning/store";
 import { NextResponse } from "next/server";
-import { actors, issue, presenterAllowed, scenarioSpace, session, type Actor } from "@/lib/packages/session";
+import { actors, issue, localStudentAvailable, presenterAllowed, scenarioSpace, session, type Actor } from "@/lib/packages/session";
 import { database } from "@/lib/packages/store";
 import { CheckoutNotice, fixture, settle, startCheckout } from "@/lib/packages/checkout";
 
@@ -34,8 +34,15 @@ export async function POST(request: Request, context: RouteContext<"/api/package
       return NextResponse.json({ url, scope: ["alex","northstar","admin"].includes(actor) ? space : user });
     }
     const buyer = await session();
-    if (!buyer) return error("Select a payment identity in the Demo Control Centre.", 403);
-    if (action === "order") return NextResponse.json({ url: await startCheckout(buyer,id,origin) });
+    if (action === "local-student") {
+      if (!localStudentAvailable(request.headers.get("host"))) return error("Student sign-in required.", 403);
+      if (buyer && buyer.role !== "student") return error("Sign out before starting a local student session.", 403);
+      const space = buyer?.space ?? await scenarioSpace(true);
+      if (!buyer) await issue("alex", space);
+      return NextResponse.json({ url: "/student/packages", scope: buyer && buyer.actor !== "alex" ? buyer.user : space });
+    }
+    if (!buyer) return error("Sign in with a demo account to continue.", 403);
+    if (action === "order") return NextResponse.json({ url: await startCheckout(buyer,id,origin,field("method") === "guest-card") });
     if (action === "capture" || action === "cancel") {
       if (!/^[a-f0-9-]{36}$/i.test(id)) return error("Invalid order.",400);
       return NextResponse.json({ status: await settle(buyer.user,id,action === "cancel") });

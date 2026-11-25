@@ -53,10 +53,10 @@ global.fetch = async (address, options) => {
   }
   return Response.json(order);
 };
-async function call(action, fields = {}) {
+async function call(action, fields = {}, host = "localhost:3000") {
   const data = new FormData();
   Object.entries(fields).forEach(([k,v])=>data.set(k,v));
-  const req = new Request("http://localhost:3000/api/packages/"+action,{method:"POST",headers:{origin:process.env.DEMO_APP_ORIGIN},body:data});
+  const req = new Request("http://localhost:3000/api/packages/"+action,{method:"POST",headers:{origin:process.env.DEMO_APP_ORIGIN,host},body:data});
   const res = await POST(req,{params:Promise.resolve({action})});
   return {status:res.status,...await res.json()};
 }
@@ -80,7 +80,22 @@ async function main() {
   assert.deepEqual((await catalogue()).filter(p=>["free","starter"].includes(p.id)).map(p=>p.price),["0.00","0.00"]);
   assert.equal((await call("order",{id:"learning"})).status,403);
   assert.equal((await call("session",{actor:"admin",key:"wrong",mode:"resume"})).status,403);
+  Object.assign(process.env, { NODE_ENV: "production", DEMO_LOCAL_STUDENT: "true" });
+  assert.equal((await call("local-student")).status,403);
+  process.env.NODE_ENV = "development";
+  process.env.NETLIFY = "true";
+  assert.equal((await call("local-student")).status,403);
+  delete process.env.NETLIFY;
+  assert.equal((await call("local-student", {}, "demo.netlify.app")).status,403);
+  assert.equal((await call("local-student", {actor:"admin",space:"other",mode:"purchased"})).status,200);
+  const local = await session();
+  assert.equal(local.actor,"alex");
+  assert.match(local.space,/^[a-f0-9-]{36}$/);
+  assert.equal(await owns(local.user,"learning"),false);
+  assert.equal((await call("local-student")).status,200);
+  assert.equal((await session()).user,local.user);
   await login("admin");
+  assert.equal((await call("local-student")).status,403);
   for (const id of ["learning","project"]) {
     const update = {id,description:"Test package",inclusions:"First\nSecond",price:"3.21"};
     assert.equal((await call("edit",update)).status,200);
@@ -120,6 +135,7 @@ async function main() {
     assert.equal(await owns(user,"learning"),false);
   }
   const paidCompany = await login("northstar","empty");
+  assert.equal((await call("create-course")).status,403);
   const projectOrder = await order("project");
   projectOrder.remote.status = "APPROVED";
   outcome = "completed";

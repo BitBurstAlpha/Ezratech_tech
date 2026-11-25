@@ -16,6 +16,14 @@ function sign(value: string) {
   if (!secret || secret.length < 32) throw new Error("Configure the demo session secret.");
   return createHmac("sha256", secret).update(value).digest("hex");
 }
+export function localStudentAvailable(host: string | null) {
+  const origin = process.env.DEMO_APP_ORIGIN;
+  return process.env.NODE_ENV === "development" && !process.env.NETLIFY &&
+    process.env.DEMO_LOCAL_STUDENT === "true" && process.env.PAYPAL_ENV === "sandbox" &&
+    (process.env.DEMO_SESSION_SECRET?.length ?? 0) >= 32 &&
+    !!origin && /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin) &&
+    host === new URL(origin).host;
+}
 export function presenterAllowed(value: string) {
   const expected = process.env.DEMO_PRESENTER_KEY;
   return !!expected && expected.length >= 32 && timingSafeEqual(Buffer.from(sign(value)), Buffer.from(sign(expected)));

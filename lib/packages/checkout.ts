@@ -6,7 +6,7 @@ import { CaptureDeclined, sandbox, type ProviderOrder } from "./paypal";
 type Order = { id: string; user_id: string; package_id: string; amount: string; currency: string; status: string; provider: string; provider_order_id: string | null };
 export class CheckoutNotice extends Error {}
 type Buyer = { user: string; role: string };
-export async function startCheckout(buyer: Buyer, id: string, origin: string) {
+export async function startCheckout(buyer: Buyer, id: string, origin: string, guestCard = false) {
   const sql = database();
   const [order] = await sql<Order[]>`
     insert into ezra_demo.orders(user_id,package_id,provider,amount,currency)
@@ -28,7 +28,7 @@ export async function startCheckout(buyer: Buyer, id: string, origin: string) {
     const api = await sandbox();
     const remote = locked.provider_order_id ? await api("/" + locked.provider_order_id) : await api("", {
       intent: "CAPTURE", purchase_units: [{ reference_id: locked.id, amount: { currency_code: locked.currency, value: locked.amount } }],
-      payment_source: { paypal: { experience_context: { shipping_preference: "NO_SHIPPING", user_action: "PAY_NOW",
+      payment_source: { paypal: { experience_context: { ...(guestCard && { landing_page: "GUEST_CHECKOUT" }), shipping_preference: "NO_SHIPPING", user_action: "PAY_NOW",
         return_url: origin + "/checkout/success?order=" + locked.id, cancel_url: origin + "/checkout/cancel?order=" + locked.id } } }
     }, locked.id);
     await tx`update ezra_demo.orders set provider_order_id=${remote.id} where id=${locked.id}`;

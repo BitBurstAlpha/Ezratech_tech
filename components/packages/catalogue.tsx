@@ -1,7 +1,9 @@
 import { LearningEditor } from "./learning-editor";
 import Link from "next/link";
 import { catalogue, database, type Package } from "@/lib/packages/store";
-import { session } from "@/lib/packages/session";
+import { headers } from "next/headers";
+import { SandboxPayment } from "./sandbox-payment";
+import { session, localStudentAvailable } from "@/lib/packages/session";
 import { PackageForm } from "./forms";
 
 export const notice = "Sandbox Payment Demo · All transactions are simulated. No real money is charged.";
@@ -19,6 +21,7 @@ function Editor({ item }: { item: Package }) {
 }
 export async function Catalogue({ role }: { role: "student" | "sme" | "admin" }) {
   const buyer = await session();
+  const localSignIn = role === "student" && !buyer && localStudentAvailable((await headers()).get("host"));
   const admin = role === "admin";
   if (admin && buyer?.role !== "admin") return <DemoIdentityLink/>;
   const data = await (async () => {
@@ -29,14 +32,19 @@ export async function Catalogue({ role }: { role: "student" | "sme" | "admin" })
   })().catch(() => null);
   if (!data) return <p role="status">{notice} The package database is unavailable. Check the demo configuration and reload.</p>;
   const { packages, active, records } = data;
-  return <div className="space-y-5"><p className="text-sm">{notice}</p>{buyer?.role === role ? <p>Demo identity · {buyer.name}</p> : <DemoIdentityLink/>}
+  const sandboxClientId = role === "student" && process.env.PAYPAL_ENV === "sandbox" ? process.env.PAYPAL_CLIENT_ID : undefined;
+  let identity = <DemoIdentityLink/>;
+  if (buyer?.role === role) identity = <p>Demo identity · {buyer.name}</p>;
+  else if (localSignIn) identity = <PackageForm action="local-student" label="Continue as Alex Morgan (local test)"/>;
+  else if (role === "student") identity = <p>Sign in with a student demo session to purchase a package.</p>;
+  return <div className="space-y-5"><p className="text-sm">{notice}</p>{identity}
       <div className="grid gap-5 lg:grid-cols-2">{packages.map(item=>{
         const free = Number(item.price) === 0 && item.price !== null;
         const href = role === "student" ? "/student/learning-plan" : free ? "/sme/profile" : "/sme/projects";
         return <article key={item.id} className={card}>{admin && <span className="text-xs uppercase text-primary">{item.audience}</span>}<h2 className="text-xl font-semibold">{item.name}</h2>
           {admin ? <Editor item={item}/> : <><p>{item.description}</p><p className="text-2xl font-semibold">{item.price === null ? "To Be Confirmed" : free ? "£0" : "£"+item.price}</p>
           <ul className="list-disc space-y-2 pl-5 text-sm">{item.inclusions.map((entry,i)=><li key={i}>{entry}</li>)}</ul>
-          {free || active.some(row => row.package_id === item.id) ? <Link className="font-semibold text-primary" href={href}>{free ? "Use free access" : "Package active · Continue"}</Link> : item.price !== null && buyer?.role === role ? <PackageForm action="order" label="One-time PayPal Sandbox checkout"><input type="hidden" name="id" value={item.id}/></PackageForm> : <p className="text-sm text-muted">{item.price === null ? "Checkout opens when a demo price is set." : "Select a demo identity to check out."}</p>}</>}
+          {free || active.some(row => row.package_id === item.id) ? <Link className="font-semibold text-primary" href={href}>{free ? "Use free access" : "Package active · Continue"}</Link> : item.price !== null && buyer?.role === role ? <SandboxPayment id={item.id} clientId={sandboxClientId}/> : <p className="text-sm text-muted">{item.price === null ? "Checkout opens when a demo price is set." : "Sign in to check out."}</p>}</>}
         </article>;
       })}</div>{!packages.length && <p>No active packages are available.</p>}
       {admin && buyer?.role === "admin" && <LearningEditor packages={packages} space={buyer.space}/>}
