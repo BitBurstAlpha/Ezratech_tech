@@ -7,8 +7,9 @@ export type AssessmentCapabilityKey = typeof assessmentCapabilities[number]["key
 export type CapabilityReviewAction = "confirm" | "change" | "request_evidence";
 export type AssessmentDecision = "confirm" | "adjust" | "request_evidence" | "recommend_reassessment";
 export type AssessmentDevelopment = {
+  initialAnswers?: Record<string, number>;
   levels: Record<AssessmentCapabilityKey, CapabilityLevel>; humanAdjusted: AssessmentCapabilityKey[];
-  reassessment: { status: "not_started" | "completed" | "more_practice"; answers: { delivery: string; communication: string; planning: string[] }; attempts: number };
+  reassessment: { waivedByReviewer?: boolean; status: "not_started" | "completed" | "more_practice"; answers: { delivery: string; communication: string; planning: string[] }; attempts: number };
   reviewRequest: { category: string; text: string } | null; humanReviewStatus: "none" | "pending" | "completed" | "evidence_requested";
   review: { actions: Record<AssessmentCapabilityKey, CapabilityReviewAction>; levels: Record<AssessmentCapabilityKey, CapabilityLevel>; notes: Record<AssessmentCapabilityKey, string>; reviewerNotes: string; decision: AssessmentDecision | null; evidenceRequired: string };
   log: { text: string; date: string }[];
@@ -32,10 +33,13 @@ export const developmentActivities: LearningActivity[] = [
   { ...mockLearningPlan.areas[0].activities[1], minutes: 30, duration: "30 minutes" },
 ];
 export const developmentLearningPlan = { ...mockLearningPlan, estimatedTime: "1 hr 45 mins", areas: [{ title: "Project Delivery", reason: developmentAreas[0].why, activities: [developmentActivities[0]] }, { title: "Professional Communication", reason: developmentAreas[1].why, activities: [developmentActivities[1], developmentActivities[2]] }] };
-export function developmentConfirmed(progress: DemoProgress) { return progress.assessment.reassessment.status === "completed" && assessmentCapabilities.every(item => progress.assessment.levels[item.key] !== "not_evidenced") && progress.assessment.humanReviewStatus !== "evidence_requested" && !progress.assessment.review.evidenceRequired.trim(); }
-export function reassessmentAvailable(progress: DemoProgress) { return ["communication", "updates", "planning"].every(id => progress.completedActivities.includes(id)) && progress.assessment.reassessment.status === "not_started"; }
+export function developmentConfirmed(progress: DemoProgress) { const assessment = progress.assessment;
+  const approved = assessment.reassessment.waivedByReviewer === true && assessment.humanReviewStatus === "completed" && ["confirm","adjust"].includes(assessment.review.decision ?? "");
+  return (assessment.reassessment.status === "completed" || approved) && assessmentCapabilities.every(item => progress.assessment.levels[item.key] !== "not_evidenced") && !["pending", "evidence_requested"].includes(progress.assessment.humanReviewStatus) && !progress.assessment.review.evidenceRequired.trim(); }
+export const requiredCourseIds = developmentActivities.map(course => course.id);
+export function reassessmentAvailable(progress: DemoProgress) { const ids = progress.assignedCourses?.map(course => course.id) ?? requiredCourseIds; return progress.assessmentComplete && ids.length > 0 && ids.every(id => progress.completedActivities.includes(id)) && progress.assessment.reassessment.status === "not_started"; }
 export function assessmentStage(progress: DemoProgress) {
-  if (progress.readinessComplete && developmentConfirmed(progress)) return "ready";
+  if (progress.assessmentComplete && progress.readinessComplete && developmentConfirmed(progress) && (progress.assignedCourses?.map(course => course.id) ?? requiredCourseIds).every(id => progress.completedActivities.includes(id))) return "ready";
   if (progress.assessment.humanReviewStatus === "pending" || progress.assessment.humanReviewStatus === "evidence_requested") return "human_review";
   if (developmentConfirmed(progress)) return "reassessment_complete";
   if (reassessmentAvailable(progress)) return "reassessment_available";

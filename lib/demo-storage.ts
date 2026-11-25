@@ -1,8 +1,12 @@
 // One prototype-owned record shared by the existing state providers, never page-specific keys.
 export const demoStorageKey = "ezratech-demo:shared-state:v1";
 export type DemoStorage = Pick<Storage, "getItem" | "setItem">;
+export function workflowKey(storage: DemoStorage) {
+  const scope = storage.getItem("ezra-workflow-scope");
+  return scope ? demoStorageKey + ":" + scope : demoStorageKey;
+}
 function record(storage: DemoStorage): Record<string, unknown> {
-  try { const parsed: unknown = JSON.parse(storage.getItem(demoStorageKey) ?? "{}"); return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed as Record<string, unknown> : {}; } catch { return {}; }
+  try { const parsed: unknown = JSON.parse(storage.getItem(workflowKey(storage)) ?? "{}"); return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed as Record<string, unknown> : {}; } catch { return {}; }
 }
 export function readDemoStateField<T>(storage: DemoStorage, field: string, fallback: T, options?: { objectMap?: boolean }): T {
   const value = record(storage)[field];
@@ -20,5 +24,5 @@ export function readDemoStateField<T>(storage: DemoStorage, field: string, fallb
   return typeof value === typeof fallback ? value as T : fallback;
 }
 export function saveDemoStateField<T>(storage: DemoStorage, field: string, value: T) {
-  storage.setItem(demoStorageKey, JSON.stringify({ ...record(storage), [field]: value }));
+  storage.setItem(workflowKey(storage), JSON.stringify({ ...record(storage), [field]: value }));
 }

@@ -16,6 +16,7 @@ export const defaultChangeRequest = "Please confirm how the anonymised sales dat
 export const changeCategories = ["Project Scope", "Deliverables", "Required Skills", "Supervision", "Time Commitment", "Data & Confidentiality", "Acceptance Criteria", "Other"];
 export const rejectionReasons = ["Project is unsuitable for student delivery", "Insufficient supervision", "Data or confidentiality risk", "Scope cannot be safely bounded", "Other"];
 export const adminNavigation: { label: string; href: string; icon: IconName }[] = [
+  { label: "Packages", href: "/admin/packages", icon: "project" },
   { label: "Dashboard", href: "/admin/dashboard", icon: "dashboard" }, { label: "Students", href: "/admin/students", icon: "student" },
   { label: "SMEs", href: "/admin/smes", icon: "user" }, { label: "Projects", href: "/admin/projects", icon: "project" },
   { label: "Project Reviews", href: "/admin/dashboard#review-queue", icon: "assessment" }, { label: "Assessments", href: "/admin/assessments/alex-morgan", icon: "verified" },

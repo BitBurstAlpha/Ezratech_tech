@@ -8,7 +8,8 @@ import { mockCandidateDecision, mockCandidates, type CandidateDecision } from ".
 type CandidateState = { resetCandidates: () => void; adminReviews: Record<string, AdminMatchReview>; auditLog: MatchingAuditEntry[]; reviewMatch: (id: string, status: AdminMatchingStatus, reason: string, notes: string) => void; markMatchEvidenceReviewed: (id: string) => void; decisions: Record<string, CandidateDecision>; setNotes: (id: string, notes: string) => void; decide: (id: string, decision: "accepted" | "declined", reason?: string) => void };
 const Context = createContext<CandidateState | null>(null);
 export function SMECandidateProvider({ children }: { children: ReactNode }) {
-  const { progress, dispatch, projectsUnlocked } = useDemoProgress();
+  const { progress, dispatch } = useDemoProgress();
+  const projectsUnlocked = progress.projectReady;
   const [records, setDecisions, recordsHydrated] = useDemoStoredState<Record<string, CandidateDecision>>("candidate:records", () => Object.fromEntries(mockCandidates.map(candidate => [candidate.id, { ...mockCandidateDecision, candidateId: candidate.id }])));
   const [adminReviews, setAdminReviews, adminReviewsHydrated] = useDemoStoredState("candidate:adminReviews", () => ({ ...mockAdminMatchReviews }));
   const [auditLog, setAuditLog, auditLogHydrated] = useDemoStoredState<MatchingAuditEntry[]>("candidate:auditLog", () => [...mockMatchingAuditLog]);

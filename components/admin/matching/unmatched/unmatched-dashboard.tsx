@@ -7,7 +7,8 @@ import { WorkspaceDialog, primaryButton, secondaryButton } from "@/components/st
 import { mockUnmatchedStudents, mockUpcomingProject, newMatchAvailable } from "@/components/student/projects/availability/availability-data";
 import { MatchingNotice, MatchingPrinciple, MatchingPrototypeNote, SkillChips } from "@/components/student/projects/availability/availability-ui";
 export function UnmatchedDashboard() {
-  const { progress, projectsUnlocked, dispatch } = useDemoProgress();
+  const { progress, dispatch } = useDemoProgress();
+  const projectsUnlocked = progress.projectReady;
   const state = progress.matchingAvailability;
   const opportunity = newMatchAvailable(state, projectsUnlocked);
   const unmatched = projectsUnlocked && state.supply === "no_match" && !opportunity;

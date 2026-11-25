@@ -24,9 +24,9 @@ export function AssessmentFlow() {
   const progress = Math.round(((questionIndex + 1) / total) * 100);
   useEffect(() => {
     if (stage !== "processing") return;
-    const timer = setTimeout(() => { dispatch({ type: "completeAssessment" }); setStage("results"); }, 2000);
+    const timer = setTimeout(async () => { const saved = await dispatch({ type: "completeAssessment", answers, evidenceProvided: !!file || !!evidence.description.trim() }); setStage(saved ? "results" : "questions"); }, 2000);
     return () => clearTimeout(timer);
-  }, [stage, dispatch]);
+  }, [stage, dispatch, answers, evidence.description, file]);
   useEffect(() => {
     const current = `${stage}-${questionIndex}`;
     if (current !== previousStage.current) { content.current?.focus(); previousStage.current = current; }

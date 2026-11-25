@@ -8,8 +8,9 @@ import { ReadinessResult } from "@/components/student/readiness/readiness-result
 export function AccessGate({ kind, children }: { kind: "readiness" | "projects"; children: ReactNode }) {
   const { progress, learningComplete, readinessUnlocked, projectsUnlocked } = useDemoProgress();
   if (kind === "readiness") {
-    if (!learningComplete) return <DashboardCard title="Complete your learning plan first"><p className="mb-5 text-sm leading-7 text-muted">Your personalised learning activities must be completed before project readiness can be confirmed.</p><DashboardLink href="/student/learning-plan" primary>Return to Learning Plan</DashboardLink></DashboardCard>;
     if (!progress.assessmentComplete) return <DashboardCard title="Complete your skills assessment first"><p className="mb-5 text-sm leading-7 text-muted">Your assessment must be completed before project readiness can be confirmed.</p><DashboardLink href="/student/assessment" primary>Continue to Skills Assessment</DashboardLink></DashboardCard>;
+    if (!learningComplete) return <DashboardCard title="Complete your learning plan first"><p className="mb-5 text-sm leading-7 text-muted">Your personalised learning activities must be completed before project readiness can be confirmed.</p><DashboardLink href="/student/learning-plan" primary>Return to Learning Plan</DashboardLink></DashboardCard>;
+    if (!readinessUnlocked && progress.assessment.reassessment.status === "completed") return <DashboardCard title="Assessment evidence required"><p className="mb-5">Review the outstanding evidence request before confirming project readiness.</p><DashboardLink href="/student/assessment/result" primary>Review Assessment</DashboardLink></DashboardCard>;
     if (!readinessUnlocked) return <DashboardCard title="Complete your reassessment first"><p className="mb-5 text-sm leading-7 text-muted">Your learning plan is complete. Finish the reassessment before confirming project readiness.</p><DashboardLink href="/student/reassessment" primary>Start Reassessment</DashboardLink></DashboardCard>;
     if (progress.readinessComplete) return <ReadinessResult />;
     return children;

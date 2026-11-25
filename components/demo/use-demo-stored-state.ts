@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
-import { demoStorageKey, readDemoStateField, saveDemoStateField } from "@/lib/demo-storage";
+import { workflowKey, readDemoStateField, saveDemoStateField } from "@/lib/demo-storage";
 const subscribe = () => () => {};
 const clientReady = () => true;
 const serverReady = () => false;
@@ -19,7 +19,8 @@ export function useDemoStoredState<T>(field: string, initial: T | (() => T), opt
   useEffect(() => {
     if (!hydrated || !syncTabs) return;
     function restore(event: StorageEvent) {
-      if (event.key !== demoStorageKey || event.storageArea !== window.localStorage) return;
+      if (event.key === "ezra-workflow-scope") { window.location.reload(); return; }
+      if (event.key !== workflowKey(window.localStorage) || event.storageArea !== window.localStorage) return;
       try {
         const before = JSON.parse(event.oldValue ?? "{}")?.[field];
         const after = JSON.parse(event.newValue ?? "{}")?.[field];

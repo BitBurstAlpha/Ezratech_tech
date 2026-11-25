@@ -1,7 +1,6 @@
 "use client";
 import { useEffect, useRef, useState, type FormEvent } from "react";
-import { mockProjectDetails as project } from "./project-details-data";
-export function InterestDialog({ onClose, onSubmitted }: { onClose: () => void; onSubmitted: () => void }) {
+export function InterestDialog({ project, onClose, onSubmitted }: { project: { title: string; company: string }; onClose: () => void; onSubmitted: () => void }) {
   const dialog = useRef<HTMLDialogElement>(null);
   const [confirmed, setConfirmed] = useState(false);
   const [submitting, setSubmitting] = useState(false);

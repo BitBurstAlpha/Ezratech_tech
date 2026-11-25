@@ -23,3 +23,20 @@ export const mockProjectPreferences = {
   workingStyles: ["Remote", "Hybrid", "On-site", "Flexible"], city: "London", country: "United Kingdom",
   commitments: ["I understand that real projects may include agreed deadlines and meetings.", "I understand that project access may depend on required checks and agreements.", "I will only accept projects that match my availability."],
 };
+
+export type ReadinessAnswers = {
+  availability: { hours: string; schedule: string; duration: string };
+  working: { style: string; city: string; country: string; uk: string; permission: string };
+  types: string[]; goals: string[]; commitments: string[];
+};
+export function validReadiness(answers?: ReadinessAnswers) {
+  if (!answers?.availability || !answers.working) return false;
+  const { availability, working, types, goals, commitments } = answers;
+  return mockAvailability.hours.includes(availability.hours) && mockAvailability.schedules.includes(availability.schedule)
+    && mockAvailability.durations.includes(availability.duration) && mockProjectPreferences.workingStyles.includes(working.style)
+    && !!working.city?.trim() && !!working.country?.trim() && ["Yes", "No"].includes(working.uk)
+    && ["Yes", "No", "Not sure"].includes(working.permission)
+    && Array.isArray(types) && types.some(type => mockProjectPreferences.types.includes(type))
+    && Array.isArray(goals) && goals.some(goal => mockProjectPreferences.goals.includes(goal))
+    && Array.isArray(commitments) && mockProjectPreferences.commitments.every(item => commitments.includes(item));
+}

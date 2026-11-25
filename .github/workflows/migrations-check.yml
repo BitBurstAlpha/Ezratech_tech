@@ -1,0 +1,55 @@
+name: Validate database migrations
+on:
+  pull_request:
+    paths:
+      - 'supabase/**'
+      - 'scripts/migrations/**'
+      - '.github/workflows/migrations-*.yml'
+  workflow_call:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  replay:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: disposable
+        ports:
+          - 5432:5432
+        options: --health-cmd pg_isready --health-interval 5s --health-retries 10
+    env:
+      TEST_DB: postgresql://postgres:disposable@127.0.0.1:5432/postgres
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: supabase/setup-cli@v3
+        with:
+          version: 3.4.0
+      - name: Validate migration files
+        env:
+          BASE: ${{ github.event.pull_request.base.sha }}
+        run: python3 scripts/migrations/validate.py ${BASE:+"$BASE"}
+      - name: Replay on disposable PostgreSQL and verify history
+        run: |
+          supabase db push --remote="$TEST_DB" --skip-vault --dry-run
+          supabase db push --remote="$TEST_DB" --skip-vault --yes
+          supabase migration list --remote="$TEST_DB"
+          psql "$TEST_DB" -X -v ON_ERROR_STOP=1 <<'SQL'
+          SET ROLE ezra_checkout;
+          DO $$
+          BEGIN
+            IF (SELECT count(*) FROM ezra_demo.packages WHERE id IN ('free','learning','project','starter')) <> 4
+               OR (SELECT count(*) FROM ezra_demo.courses WHERE id IN ('planning','communication','updates')) <> 3
+               OR has_schema_privilege(current_user, 'ezra_demo', 'CREATE') THEN
+              RAISE EXCEPTION 'Catalogue seed or restricted-role check failed';
+            END IF;
+          END $$;
+          SQL
+          diff <(for file in supabase/migrations/*.sql; do basename "$file" | cut -d_ -f1; done) \
+               <(psql "$TEST_DB" -XAtq -v ON_ERROR_STOP=1 -c 'select version from supabase_migrations.schema_migrations order by version')
