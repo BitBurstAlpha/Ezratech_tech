@@ -8,10 +8,17 @@
   --color-blue-light: #EFF7FC;
   --color-section: #F7F8FA;
   --color-border: #E5E7EB;
-  --font-sans: var(--font-geist-sans);
+  --color-dashboard-blue: #004e99;
+  --color-dashboard-soft: #edf5fc;
+  --color-dashboard-line: #d6dae3;
+  --color-dashboard-muted: #414752;
+  --color-dashboard-ink: #191c21;
+  --font-sans: var(--font-geist-sans), Arial, sans-serif;
+  --font-mono: var(--font-geist-sans), Arial, sans-serif;
 }
 html { scroll-behavior: smooth; scroll-padding-top: 40px; }
 body { background: white; color: #333438; font-family: var(--font-geist-sans), Arial, sans-serif; }
+pre, code, kbd, samp { font-family: inherit; }
 button { cursor: pointer; }
 :focus-visible { outline: 3px solid #FFB000; outline-offset: 4px; }
 dialog::backdrop { background: rgb(24 39 52 / 35%); }

@@ -1,13 +1,20 @@
 "use client";
+import { motion, useReducedMotion } from "motion/react";
 import { useDemoProgress } from "@/components/student/progress/demo-progress";
 import { DashboardCard, DashboardLink } from "@/components/student/dashboard/dashboard-card";
 import { assessmentCapabilities, capabilityLevels, developmentAreas, demonstratedStrengths, developmentActivities, developmentConfirmed, reassessmentAvailable } from "./development-data";
 import { HumanReviewAction, AssessmentPrototypeNote } from "./human-review-action";
 export function DevelopmentResult() {
   const { progress, learningComplete, projectsUnlocked } = useDemoProgress();
+  const reducedMotion = useReducedMotion();
   const confirmed = developmentConfirmed(progress);
   const available = reassessmentAvailable(progress);
-  return <div className="mx-auto max-w-5xl space-y-6"><section className={`rounded-xl border p-6 ${confirmed ? "border-green-200 bg-green-50" : "border-yellow-200 bg-yellow-50"}`}><span className="rounded-full bg-white px-3 py-1.5 text-xs font-semibold">{confirmed ? "Development Confirmed" : "Further Development Needed"}</span><p className="mt-5 text-sm font-semibold">Alex Morgan · Career Goal: Data Analyst</p><p className="mt-3 text-sm leading-7 text-muted">Your assessment identified several strengths and a small number of areas that need further development before project readiness can be confirmed.</p>{progress.assessment.humanReviewStatus === "completed" && <p className="mt-3 text-xs text-primary">Human-reviewed capability levels are shown below.</p>}</section>
+  return <div className="mx-auto max-w-5xl space-y-6">
+    <motion.section
+      initial={reducedMotion ? false : { opacity: 0, y: 8 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: reducedMotion ? 0 : 0.35, ease: "easeOut" }}
+      className={`rounded-xl border p-6 ${confirmed ? "border-green-200 bg-green-50" : "border-yellow-200 bg-yellow-50"}`}><span className="rounded-full bg-white px-3 py-1.5 text-xs font-semibold">{confirmed ? "Development Confirmed" : "Further Development Needed"}</span><p className="mt-5 text-sm font-semibold">Alex Morgan · Career Goal: Data Analyst</p><p className="mt-3 text-sm leading-7 text-muted">{confirmed ? "Your development has been confirmed. Review your capability summary and next steps below." : "Your assessment has identified several strengths and a few areas that require further development. To strengthen your skills and prepare you for real-world projects, please complete the courses assigned to you in your personalised learning plan."}</p>{progress.assessment.humanReviewStatus === "completed" && <p className="mt-3 text-xs text-primary">Human-reviewed capability levels are shown below.</p>}</motion.section>
     <DashboardCard title="Capability Summary"><dl className="grid gap-4 sm:grid-cols-2">{assessmentCapabilities.map(item => <div key={item.key} className="rounded-lg border border-border p-4"><dt className="text-sm font-semibold">{item.name}</dt><dd className="mt-2 text-sm leading-7 text-primary">{capabilityLevels[progress.assessment.levels[item.key]]}</dd></div>)}</dl></DashboardCard>
     <DashboardCard title="Demonstrated Strengths"><div className="grid gap-4 md:grid-cols-3">{demonstratedStrengths.map(item => <article key={item.name} className="rounded-lg border border-green-100 p-4"><h3 className="text-sm font-semibold">{item.name}</h3><p className="mt-3 text-sm leading-7 text-muted">Evidence: {item.evidence}</p></article>)}</div></DashboardCard>
     <DashboardCard title="Development Areas"><div className="grid gap-5 md:grid-cols-2">{developmentAreas.map(item => <article key={item.name} className="rounded-lg border border-border p-5"><h3 className="font-semibold">{item.name}</h3><p className="mt-3 text-xs leading-6 text-primary">Current Level: {capabilityLevels[progress.assessment.levels[item.key]]}</p><p className="mt-3 text-sm leading-7 text-muted">{item.why}</p><h4 className="mt-4 text-xs font-semibold">Recommended Development</h4><ul className="mt-3 list-inside list-disc space-y-2 text-sm text-muted">{item.recommended.map(value => <li key={value}>{value}</li>)}</ul><p className="mt-4 text-xs text-muted">Recommendations reflect the initial assessment. Current levels include subsequent reassessment and human review.</p></article>)}</div></DashboardCard>
