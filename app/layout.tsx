@@ -3,7 +3,7 @@ import { readLearning } from "@/lib/learning/store";
 import { learningRecord } from "@/lib/learning/record";
 import { SMEWorkspaceManagerProvider } from "@/components/sme/workspace/workspace-manager-state";
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Geist } from "next/font/google";
 import "./globals.css";
 import { DemoProgressProvider } from "@/components/student/progress/demo-progress";
 import { SMECandidateProvider } from "@/components/sme/candidates/candidate-state";
@@ -14,11 +14,6 @@ import { DemoControlsProvider } from "@/components/demo/demo-controls";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
   subsets: ["latin"],
 });
 
@@ -34,7 +29,7 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html
       lang="en"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+      className={`${geistSans.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col"><DemoProgressProvider key={JSON.stringify([buyer?.user, initialLearning])} actorRole={buyer?.role} initialLearning={initialLearning}><SMEProvider><SMEWorkspaceManagerProvider><SMEProjectProvider><SMECandidateProvider><DemoControlsProvider>{children}</DemoControlsProvider></SMECandidateProvider></SMEProjectProvider></SMEWorkspaceManagerProvider></SMEProvider></DemoProgressProvider></body>
     </html>

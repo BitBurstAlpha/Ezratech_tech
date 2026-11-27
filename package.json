@@ -21,6 +21,7 @@
     "test:database": "node scripts/test-database.mjs"
   },
   "dependencies": {
+    "motion": "^14.14.0",
     "next": "16.3.8",
     "postgres": "^3.4.7",
     "react": "19.2.8",

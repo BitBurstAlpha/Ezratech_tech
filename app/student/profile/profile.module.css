@@ -1,0 +1,15 @@
+.confirm {
+  opacity: 0;
+  transform: translateY(5px);
+  transition: opacity 180ms, transform 180ms, overlay 180ms allow-discrete, display 180ms allow-discrete;
+}
+.confirm[open] {
+  opacity: 1;
+  transform: translateY(0);
+}
+@starting-style {
+  .confirm[open] { opacity: 0; transform: translateY(5px); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .confirm { transition: none; }
+}

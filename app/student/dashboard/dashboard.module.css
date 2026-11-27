@@ -1,0 +1,8 @@
+.dashboard {
+  color: #191c21;
+}
+.dashboard main {
+  max-width: 76rem;
+}
+
+.dashboard > div { background-color: #f9f9ff; }
